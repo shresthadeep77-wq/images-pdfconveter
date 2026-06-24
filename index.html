@@ -1,0 +1,2882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio Pro – Local Converter & Compressor</title>
+    <meta name="description" content="Convert, compress, resize, merge and edit images & PDFs — fully offline, right in your browser. No uploads, no server, no account needed.">
+    <meta property="og:title" content="Studio Pro – Local Converter & Compressor">
+    <meta property="og:description" content="Convert, compress, resize, merge and edit images & PDFs — fully offline, right in your browser.">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231A1816'/><circle cx='50' cy='50' r='15' fill='%23E8541E'/></svg>">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome (stable 6.5.1) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Fonts: Space Grotesk (display), Inter (UI/body), JetBrains Mono (machine facts) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        window.tailwind = window.tailwind || {};
+        tailwind.config = {
+            darkMode: ['selector', 'body.dark'],
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Space Grotesk', 'system-ui', 'sans-serif'],
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+                    },
+                    colors: {
+                        paper: '#FAF8F3',
+                        ink: '#1A1816',
+                        signal: { DEFAULT: '#E8541E', soft: '#FBEDE7', dark: '#B83D0E' },
+                        circuit: { DEFAULT: '#2D7D7B', soft: '#E2F0EF' },
+                        sand: { DEFAULT: '#8C8579', light: '#E8E3D8', lighter: '#F2EEE5' },
+                        terminal: { DEFAULT: '#16140F', panel: '#211E18', edge: '#2E2A22' },
+                    },
+                },
+            },
+        };
+    </script>
+    <style>
+        /* =====================================================================
+           STUDIO PRO — "WORKBENCH" THEME
+           A local-first utility that looks like a piece of desktop hardware,
+           not a cloud SaaS. Warm paper canvas, ink type, signal-orange status
+           LED accent, and monospace for every machine-computed fact.
+           ===================================================================== */
+
+        :root {
+            --bg: #FAF8F3;
+            --surface: #FFFFFF;
+            --surface-2: #F2EEE5;
+            --ink: #1A1816;
+            --ink-2: #57514733;
+            --muted: #8C8579;
+            --line: #E2DCCF;
+            --line-strong: #D2CABA;
+            --signal: #E8541E;
+            --signal-soft: #FBEDE7;
+            --circuit: #2D7D7B;
+            --circuit-soft: #E2F0EF;
+            --radius: 14px;
+            --radius-sm: 10px;
+            --radius-lg: 20px;
+        }
+        .dark {
+            --bg: #16140F;
+            --surface: #211E18;
+            --surface-2: #1B1813;
+            --ink: #F4F1EA;
+            --muted: #A39B8C;
+            --line: #2E2A22;
+            --line-strong: #3A352B;
+            --signal: #F26836;
+            --signal-soft: #2A1A12;
+            --circuit: #4FB3B0;
+            --circuit-soft: #14211F;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background-color: var(--bg);
+            color: var(--ink);
+            background-image:
+                radial-gradient(circle at 1px 1px, rgba(140,133,121,0.08) 1px, transparent 0);
+            background-size: 22px 22px;
+        }
+        body.dark { background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.025) 1px, transparent 0); }
+
+        .font-display { font-family: 'Space Grotesk', sans-serif; }
+        .font-mono, .mono { font-family: 'JetBrains Mono', monospace; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+        /* ===== Surfaces ===== */
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+        }
+        .panel-2 { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius); }
+
+        /* ===== Status strip (the signature) ===== */
+        .status-strip {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            letter-spacing: 0.02em;
+        }
+        .led {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--circuit);
+            box-shadow: 0 0 0 0 rgba(45,125,123,0.5);
+            flex-shrink: 0;
+        }
+        .led.busy { background: var(--signal); animation: ledPulse 1.1s ease-in-out infinite; }
+        @keyframes ledPulse {
+            0% { box-shadow: 0 0 0 0 rgba(232,84,30,0.5); }
+            70% { box-shadow: 0 0 0 7px rgba(232,84,30,0); }
+            100% { box-shadow: 0 0 0 0 rgba(232,84,30,0); }
+        }
+
+        /* ===== Brand mark ===== */
+        .brand-mark {
+            width: 34px; height: 34px; border-radius: 9px;
+            background: var(--ink); position: relative;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .brand-mark::after {
+            content: ''; width: 13px; height: 13px; border-radius: 50%;
+            background: var(--signal);
+        }
+        .dark .brand-mark { background: #000; }
+
+        /* ===== Segmented filter (replaces tab pills) ===== */
+        .seg {
+            display: inline-flex; background: var(--surface-2);
+            border: 1px solid var(--line); border-radius: 11px; padding: 3px; gap: 2px;
+        }
+        .tab-btn {
+            display: flex; align-items: center; gap: 7px;
+            padding: 7px 13px; border-radius: 8px;
+            font-size: 0.8rem; font-weight: 500; color: var(--muted);
+            background: transparent; border: none; cursor: pointer;
+            transition: all 0.15s ease; white-space: nowrap;
+        }
+        .tab-btn:hover { color: var(--ink); }
+        .tab-btn[aria-selected="true"] {
+            background: var(--surface); color: var(--ink);
+            box-shadow: 0 1px 2px rgba(26,24,22,0.06);
+        }
+        .tab-btn .count {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
+            background: var(--line); color: var(--muted);
+            padding: 1px 6px; border-radius: 20px; line-height: 1.4;
+        }
+        .tab-btn[aria-selected="true"] .count { background: var(--signal-soft); color: var(--signal); }
+
+        /* ===== Theme option buttons (settings) ===== */
+        .theme-opt {
+            padding: 7px 15px; border-radius: 8px; font-size: 0.8rem; font-weight: 500;
+            color: var(--muted); background: transparent; border: none; cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .theme-opt:hover { color: var(--ink); }
+        .theme-opt.bg-white { background: var(--surface) !important; color: var(--ink); box-shadow: 0 1px 2px rgba(26,24,22,0.06); }
+        .dark .theme-opt.dark\:bg-slate-700 { background: var(--surface) !important; color: var(--ink); }
+
+        /* ===== Icon buttons in header ===== */
+        .icon-btn {
+            width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+            border-radius: 10px; color: var(--muted); background: transparent;
+            border: 1px solid transparent; cursor: pointer; transition: all 0.15s ease;
+        }
+        .icon-btn:hover { color: var(--ink); background: var(--surface-2); border-color: var(--line); }
+
+        /* ===== Drop zone ===== */
+        .drop-zone {
+            border: 1.5px dashed var(--line-strong);
+            border-radius: var(--radius);
+            transition: all 0.25s ease; background: var(--surface);
+        }
+        .drop-zone.dragover {
+            border-color: var(--signal); background: var(--signal-soft);
+        }
+
+        /* ===== File cards ===== */
+        .file-card {
+            transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
+            cursor: pointer;
+        }
+        .file-card:hover { transform: translateY(-2px); }
+        .file-card.selected { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+        /* ===== Tool buttons (now in right rail) ===== */
+        .tool-group { display: contents; }
+        .group-label {
+            display: block; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--muted);
+            padding: 14px 4px 7px; grid-column: 1 / -1;
+        }
+        .tool-btn {
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            padding: 13px 8px; border-radius: var(--radius-sm);
+            font-size: 0.72rem; font-weight: 500; color: var(--ink);
+            background: var(--surface-2); border: 1px solid var(--line);
+            cursor: pointer; transition: all 0.15s ease; text-align: center;
+            min-height: 64px; line-height: 1.2;
+        }
+        .tool-btn i { font-size: 1.05rem; color: var(--muted); transition: color 0.15s; }
+        .tool-btn:hover:not(:disabled) {
+            border-color: var(--signal); background: var(--signal-soft);
+        }
+        .tool-btn:hover:not(:disabled) i { color: var(--signal); }
+        .tool-btn:disabled { opacity: 0.35; pointer-events: none; cursor: not-allowed; }
+
+        /* ===== Action rail ===== */
+        .action-rail { transition: opacity 0.2s ease; }
+
+        /* ===== Quality slider ===== */
+        input[type="range"].q-slider { accent-color: var(--signal); }
+
+        /* ===== Modals & overlays ===== */
+        .modal-overlay { background: rgba(26,24,22,0.55); backdrop-filter: blur(6px); }
+        .dark .modal-overlay { background: rgba(0,0,0,0.65); }
+
+        /* ===== Queue sidebar ===== */
+        .queue-sidebar {
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.16,1,0.3,1);
+            background: var(--surface);
+        }
+        .queue-sidebar.open { transform: translateX(0); }
+
+        /* ===== Bottom nav (mobile) ===== */
+        .bottom-nav { border-top: 1px solid var(--line); background: var(--surface); }
+        .mobile-nav-btn { color: var(--muted); transition: color 0.15s; }
+        .mobile-nav-btn.active, .mobile-nav-btn:hover { color: var(--signal); }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* ===== Toasts ===== */
+        #toastContainer { position: fixed; bottom: 84px; right: 16px; z-index: 100; display: flex; flex-direction: column; gap: 8px; width: 290px; pointer-events: none; }
+        @media (min-width:768px) { #toastContainer { bottom: 24px; right: 24px; } }
+
+        .scale-in { animation: scaleIn 0.2s cubic-bezier(0.16,1,0.3,1); }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+
+        /* ===== Conversion list ===== */
+        .conversion-list-wrapper { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--line); overflow: hidden; }
+        .conv-row { display: grid; grid-template-columns: 1fr auto minmax(120px, 160px) auto; gap: 14px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+        .conv-row:last-child { border-bottom: none; }
+        .conv-row .file-info { overflow: hidden; }
+        .conv-row .file-name { font-weight: 500; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .conv-row .file-size { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--muted); }
+        .row-quality { display: flex; align-items: center; gap: 8px; }
+        .row-q-slider { flex: 1; min-width: 70px; accent-color: var(--signal); cursor: pointer; height: 4px; }
+        .row-q-val { font-size: 0.72rem; color: var(--signal); font-weight: 600; min-width: 34px; text-align: right; }
+        .row-q-na { font-size: 0.78rem; color: var(--line-strong); width: 100%; text-align: center; }
+        @media (max-width: 640px) {
+            .conv-row { grid-template-columns: 1fr auto; gap: 10px; }
+            .row-quality { grid-column: 1 / -1; }
+        }
+        .conv-row select { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; color: var(--ink); outline: none; min-width: 84px; cursor: pointer; font-family: 'JetBrains Mono', monospace; }
+        .conv-row .action-btns { display: flex; gap: 4px; align-items: center; }
+        .conv-row .action-btns button { background: transparent; border: none; color: var(--muted); cursor: pointer; padding: 8px 10px; border-radius: 8px; transition: 0.15s; font-size: 0.9rem; line-height: 1; min-width: 40px; min-height: 40px; display: flex; align-items: center; justify-content: center; }
+        .conv-row .action-btns button:hover { background: var(--surface-2); color: var(--ink); }
+        .conv-row .action-btns .remove:hover { color: #D85A30; background: var(--signal-soft); }
+        .conv-row .row-convert { background: var(--signal-soft) !important; color: var(--signal) !important; }
+        .conv-row .row-convert:hover { background: var(--signal) !important; color: #fff !important; }
+        .est-size { color: var(--muted); margin-left: 6px; }
+        .est-size .est-bytes { color: var(--circuit); font-weight: 600; }
+        .est-size .est-delta.down { color: var(--circuit); }
+        .est-size .est-delta.up { color: var(--signal); }
+        .empty-conversion { padding: 40px 20px; text-align: center; color: var(--muted); }
+        .convert-chip {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 8px 13px; border-radius: 999px; font-size: 0.78rem; font-weight: 500;
+            color: var(--ink); background: var(--surface-2); border: 1px solid var(--line);
+            cursor: pointer; transition: all 0.15s ease; min-height: 40px;
+        }
+        .convert-chip i { color: var(--muted); font-size: 0.82rem; transition: color 0.15s; }
+        .convert-chip:hover { border-color: var(--signal); background: var(--signal-soft); color: var(--signal); }
+        .convert-chip:hover i { color: var(--signal); }
+
+        /* ===== Bulk bar ===== */
+        .bulk-bar { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface-2); border-top: 1px solid var(--line); flex-wrap: wrap; }
+        .bulk-label { font-size: 0.82rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
+        .bulk-label span { font-family: 'JetBrains Mono', monospace; color: var(--signal); }
+        .convert-btn { background: var(--signal); color: #fff; border: none; padding: 9px 18px; border-radius: var(--radius-sm); font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: 0.15s; white-space: nowrap; min-height: 42px; }
+        .convert-btn:hover:not(:disabled) { background: var(--signal-dark, #B83D0E); }
+        .convert-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* ===== Format selector panel ===== */
+        .format-trigger { cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--line-strong); font-weight: 500; font-size: 0.82rem; color: var(--ink); transition: 0.15s; min-width: 130px; justify-content: space-between; min-height: 42px; }
+        .format-trigger:hover { border-color: var(--signal); }
+        .format-trigger .placeholder { color: var(--muted); }
+        .format-trigger .selected-label { color: var(--signal); font-weight: 600; }
+        .format-panel {
+            position: fixed;
+            background: var(--surface); border-radius: var(--radius);
+            box-shadow: 0 20px 50px rgba(26,24,22,0.18); border: 1px solid var(--line-strong);
+            padding: 18px; z-index: 60; display: none; width: 520px; max-width: calc(100vw - 32px);
+            opacity: 0; transform: translateY(8px); transition: opacity 0.18s ease, transform 0.18s ease;
+            max-height: 420px; overflow: hidden;
+        }
+        .format-panel.open { display: block; opacity: 1; transform: translateY(0); }
+        .format-panel .search-box { width: 100%; padding: 10px 14px 10px 38px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 0.88rem; outline: none; transition: 0.15s; background: var(--surface-2); color: var(--ink); }
+        .format-panel .search-box:focus { border-color: var(--signal); background: var(--surface); }
+        .format-panel .category-tab { padding: 9px 14px; border-radius: 9px; font-weight: 500; font-size: 0.78rem; cursor: pointer; transition: 0.15s; color: var(--muted); background: transparent; border: none; white-space: nowrap; text-align: left; min-height: 42px; }
+        .format-panel .category-tab:hover { background: var(--surface-2); color: var(--ink); }
+        .format-panel .category-tab.active { background: var(--signal-soft); color: var(--signal); font-weight: 600; }
+        .format-card { padding: 10px 14px; border-radius: 9px; border: 1px solid var(--line); cursor: pointer; transition: 0.15s; display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 0.82rem; color: var(--ink); background: var(--surface-2); min-height: 42px; }
+        .format-card:hover { border-color: var(--line-strong); }
+        .format-card.selected { background: var(--signal-soft); border-color: var(--signal); color: var(--signal); }
+        .format-card .check { opacity: 0; transition: 0.15s; margin-left: auto; color: var(--signal); }
+        .format-card.selected .check { opacity: 1; }
+        .format-panel .format-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 180px; overflow-y: auto; padding-right: 4px; }
+        #formatBackdrop { position: fixed; inset: 0; background: rgba(26,24,22,0.12); z-index: 55; display: none; }
+        #formatBackdrop.open { display: block; }
+
+        /* ===== Hero compact mode ===== */
+        #heroUpload.compact .hero-full { display: none; }
+        #heroUpload:not(.compact) .hero-compact { display: none; }
+        #heroUpload.compact { padding: 16px; }
+        .compact-drop { display: flex; align-items: center; justify-content: center; padding: 14px; border: 1.5px dashed var(--line-strong); border-radius: var(--radius-sm); cursor: pointer; color: var(--muted); transition: 0.2s; }
+        .compact-drop:hover { border-color: var(--signal); color: var(--signal); }
+        .hero-compact { display: flex; gap: 10px; align-items: center; }
+
+        /* ===== Workspace layout (two-column: grid + action rail) ===== */
+        @media (min-width: 1024px) {
+            .workspace-split { display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
+            .action-rail { position: sticky; top: 88px; }
+        }
+        @media (max-width: 1023px) {
+            .action-rail { margin-top: 20px; }
+        }
+
+        /* Focus visibility */
+        :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+        /* Header bar translucent background (plain rgba — avoids color-mix() for export-tool compatibility) */
+        .header-bar { background: rgba(250, 248, 243, 0.82); }
+        body.dark .header-bar { background: rgba(22, 20, 15, 0.82); }
+
+        /* ===== Safety net: core utilities the JS toggles, in case the
+           Tailwind CDN is slow to load. Tailwind's own classes override
+           these when present (same name), so no conflict. ===== */
+        .hidden { display: none; }
+        [hidden] { display: none; }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div id="app" class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pb-28 md:pb-10">
+
+        <!-- ============================================================
+             HEADER  (top nav — kept, refined)
+             ============================================================ -->
+        <header role="banner" class="header-bar sticky top-0 z-40 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 mb-5 backdrop-blur-md" style="border-bottom: 1px solid var(--line);">
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+                <!-- Brand -->
+                <div class="flex items-center gap-2.5">
+                    <div class="brand-mark" aria-hidden="true"></div>
+                    <div class="leading-none">
+                        <div class="font-display font-bold text-lg tracking-tight" style="color: var(--ink);">Studio<span style="color: var(--signal);">.</span></div>
+                        <div class="status-strip flex items-center gap-1.5 mt-0.5" style="color: var(--muted);">
+                            <span id="statusLed" class="led" aria-hidden="true"></span>
+                            <span id="statusText">local · ready</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter + actions -->
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <div class="seg" aria-label="Files">
+                        <span class="tab-btn" aria-selected="true" style="cursor:default;"><i class="fas fa-folder-open" aria-hidden="true"></i><span class="hidden sm:inline">Files</span><span id="fileCount" class="count">0</span></span>
+                    </div>
+                    <span id="imgCount" class="hidden">0</span><span id="pdfCount" class="hidden">0</span>
+                    <div class="w-px h-7" style="background: var(--line);"></div>
+                    <button id="queueToggle" class="icon-btn relative" aria-label="Open queue"><i class="fas fa-list-ul" aria-hidden="true"></i><span id="queueBadge" class="absolute -top-0.5 -right-0.5 w-4 h-4 text-white text-[10px] font-bold rounded-full flex items-center justify-center hidden mono" style="background: var(--signal);">0</span></button>
+                    <button id="themeToggle" class="icon-btn" aria-label="Toggle theme"><i class="fas fa-moon dark:hidden" aria-hidden="true"></i><i class="fas fa-sun hidden dark:inline" aria-hidden="true"></i></button>
+                    <button id="settingsToggle" class="icon-btn" aria-label="Settings"><i class="fas fa-sliders-h" aria-hidden="true"></i></button>
+                </div>
+            </div>
+        </header>
+
+        <!-- ============================================================
+             HERO UPLOAD
+             ============================================================ -->
+        <section id="heroUpload" class="panel mb-6 p-8 md:p-10 transition-all duration-300">
+            <!-- Full hero (no files) -->
+            <div class="hero-full flex flex-col items-center justify-center text-center">
+                <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-4" style="background: var(--signal-soft); color: var(--signal);"><i class="fas fa-bolt" aria-hidden="true"></i></div>
+                <h1 class="font-display text-2xl md:text-3xl font-bold mb-2" style="color: var(--ink);">Process files on your own machine</h1>
+                <p class="mb-1 max-w-lg" style="color: var(--muted);">Convert, compress, resize and merge images &amp; PDFs.</p>
+                <p class="status-strip mb-6 flex items-center gap-2" style="color: var(--circuit);"><i class="fas fa-shield-halved" aria-hidden="true"></i> nothing is uploaded — everything runs in this browser</p>
+
+                <div id="dropZone" class="drop-zone w-full max-w-2xl p-10 flex flex-col items-center justify-center cursor-pointer" role="button" tabindex="0" aria-label="Drop zone — click or drag files here">
+                    <i class="fas fa-arrow-down-to-bracket text-3xl mb-3" style="color: var(--line-strong);" aria-hidden="true"></i>
+                    <p class="font-medium" style="color: var(--ink);">Drop files here or <span style="color: var(--signal); text-decoration: underline; text-underline-offset: 3px;">browse</span></p>
+                    <p class="status-strip mt-2" style="color: var(--muted);">PNG · JPG · WEBP · GIF · TIFF · SVG · PDF · DOCX · XLSX · PPTX · HTML — max 50&nbsp;MB</p>
+                    <input id="fileInput" type="file" class="hidden" multiple accept="image/*,.pdf,.docx,.xlsx,.pptx,.html,.htm,.svg,.tiff,.tif,.avif,.ico,.bmp">
+                </div>
+
+                <div class="flex flex-wrap items-center justify-center gap-3 mt-6">
+                    <button id="uploadImagesBtn" class="px-4 py-2.5 panel-2 rounded-xl font-medium flex items-center gap-2 min-h-[44px] transition-all hover:border-signal" style="color: var(--ink);"><i class="fas fa-image" style="color: var(--signal);" aria-hidden="true"></i> Upload images</button>
+                    <button id="uploadDocsBtn" class="px-4 py-2.5 panel-2 rounded-xl font-medium flex items-center gap-2 min-h-[44px] transition-all hover:border-signal" style="color: var(--ink);"><i class="fas fa-file-lines" style="color: var(--circuit);" aria-hidden="true"></i> Office / HTML</button>
+                </div>
+            </div>
+
+            <!-- Compact hero (files present) -->
+            <div class="hero-compact">
+                <div class="compact-drop flex-1" id="compactDropZone" role="button" tabindex="0" aria-label="Drop more files here">
+                    <i class="fas fa-plus mr-2" aria-hidden="true"></i>
+                    <span class="text-sm font-medium">Drop more files or browse</span>
+                </div>
+                <button id="uploadImagesBtn2" class="px-3 py-2.5 panel-2 rounded-xl text-sm font-medium flex items-center gap-2 min-h-[44px] whitespace-nowrap" style="color: var(--ink);"><i class="fas fa-image" style="color: var(--signal);" aria-hidden="true"></i> <span class="hidden sm:inline">Images</span></button>
+                <button id="uploadDocsBtn2" class="px-3 py-2.5 panel-2 rounded-xl text-sm font-medium flex items-center gap-2 min-h-[44px] whitespace-nowrap" style="color: var(--ink);"><i class="fas fa-file-lines" style="color: var(--circuit);" aria-hidden="true"></i> <span class="hidden sm:inline">Docs</span></button>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             WORKSPACE  (grid + right action rail)
+             ============================================================ -->
+        <main id="workspace">
+            <div class="workspace-split">
+
+                <!-- LEFT: file grids + conversion list -->
+                <div class="min-w-0">
+                    <!-- Selection bar -->
+                    <div class="flex items-center gap-3 mb-4 flex-wrap">
+                        <div class="relative flex-1 min-w-[180px]">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-sm" style="color: var(--muted);" aria-hidden="true"></i>
+                            <input id="searchInput" type="text" placeholder="Filter files…" class="w-full pl-9 pr-3 py-2.5 panel rounded-xl text-sm outline-none" style="background: var(--surface); color: var(--ink);" aria-label="Filter files by name">
+                        </div>
+                        <span id="selectedCount" class="status-strip hidden px-2.5 py-1 rounded-lg" style="background: var(--signal-soft); color: var(--signal);">0 selected</span>
+                        <button id="selectAllBtn" class="text-xs font-medium px-3 py-2 rounded-lg transition-all min-h-[40px]" style="color: var(--muted);">Select all</button>
+                        <button id="clearSelectedBtn" class="text-xs font-medium px-3 py-2 rounded-lg transition-all min-h-[40px]" style="color: var(--muted);">Clear</button>
+                    </div>
+
+                    <!-- Unified grid: all file types mixed -->
+                    <div id="fileGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+
+                    <!-- Conversion box — the default convert surface (always visible) -->
+                    <div id="conversionSection" class="mt-8 pt-8" style="border-top: 1px solid var(--line);">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="font-display text-lg font-semibold flex items-center gap-2" style="color: var(--ink);"><i class="fas fa-exchange-alt" style="color: var(--signal);" aria-hidden="true"></i> Convert <span id="convCount" class="count">0</span></h2>
+                            <button id="addToConvertBtn" class="text-sm font-medium flex items-center gap-1.5 min-h-[44px]" style="color: var(--signal);"><i class="fas fa-plus" aria-hidden="true"></i> Add files</button>
+                        </div>
+                        <div class="conversion-list-wrapper">
+                            <div id="conversionList"></div>
+                            <div id="bulkBar" class="bulk-bar">
+                                <span class="bulk-label">Convert all (<span id="bulkCount">0</span>) to:</span>
+                                <div class="relative flex-1 min-w-[140px]">
+                                    <button id="formatTrigger" class="format-trigger w-full" aria-haspopup="true">
+                                        <span id="formatDisplay" class="placeholder">Select format</span>
+                                        <i class="fas fa-chevron-down text-xs" style="color: var(--muted);" aria-hidden="true"></i>
+                                    </button>
+                                    <div id="formatPanel" class="format-panel" role="dialog" aria-label="Select output format">
+                                        <div class="relative mb-4">
+                                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-sm" style="color: var(--muted);" aria-hidden="true"></i>
+                                            <input type="text" id="formatSearch" class="search-box" placeholder="Search format…" autocomplete="off" aria-label="Search formats">
+                                        </div>
+                                        <div class="flex gap-4">
+                                            <div class="flex flex-col gap-1 min-w-[90px] flex-shrink-0" role="tablist" aria-label="Format categories">
+                                                <button class="category-tab active" data-category="image" role="tab" aria-selected="true">Image</button>
+                                                <button class="category-tab" data-category="document" role="tab" aria-selected="false">Document</button>
+                                                <button class="category-tab" data-category="ebook" role="tab" aria-selected="false">PDF / Text</button>
+                                            </div>
+                                            <div id="formatGridContainer" class="flex-1">
+                                                <div id="formatGrid" class="format-grid" role="tabpanel"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button id="bulkConvertBtn" class="convert-btn" disabled>Convert <i class="fas fa-arrow-right text-xs ml-1" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <!-- Hint chips shown when no files are queued for conversion -->
+                        <div id="convertHints" class="mt-4">
+                            <p class="status-strip mb-3" style="color: var(--muted);">add a file, then pick its output — supported conversions:</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button class="convert-chip" data-accept="image/*"><i class="fas fa-image" aria-hidden="true"></i> Image → PDF</button>
+                                <button class="convert-chip" data-accept="image/*"><i class="fas fa-image" aria-hidden="true"></i> Image → JPG / PNG / WEBP</button>
+                                <button class="convert-chip" data-accept="application/pdf"><i class="fas fa-file-pdf" aria-hidden="true"></i> PDF → Images</button>
+                                <button class="convert-chip" data-accept="application/pdf"><i class="fas fa-file-word" aria-hidden="true"></i> PDF → Word</button>
+                                <button class="convert-chip" data-accept="application/pdf"><i class="fas fa-file-excel" aria-hidden="true"></i> PDF → Excel</button>
+                                <button class="convert-chip" data-accept="application/pdf"><i class="fas fa-file-lines" aria-hidden="true"></i> PDF → Text</button>
+                                <button class="convert-chip" data-accept=".docx"><i class="fas fa-file-word" aria-hidden="true"></i> Word → PDF</button>
+                                <button class="convert-chip" data-accept=".xlsx"><i class="fas fa-file-excel" aria-hidden="true"></i> Excel → PDF</button>
+                                <button class="convert-chip" data-accept=".pptx"><i class="fas fa-file-powerpoint" aria-hidden="true"></i> PPTX → PDF</button>
+                                <button class="convert-chip" data-accept=".html,.htm"><i class="fas fa-code" aria-hidden="true"></i> HTML → PDF</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Empty state -->
+                    <div id="emptyState" class="flex flex-col items-center justify-center py-16 text-center">
+                        <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl mb-4" style="background: var(--surface-2); color: var(--line-strong);"><i class="fas fa-folder-open" aria-hidden="true"></i></div>
+                        <h2 class="font-display text-xl font-semibold" style="color: var(--ink);">Nothing loaded yet</h2>
+                        <p class="max-w-sm mt-1 mb-6" style="color: var(--muted);">Add files to convert, compress, or merge them — all locally.</p>
+                        <div class="flex flex-wrap items-center justify-center gap-3">
+                            <button onclick="document.getElementById('fileInput').click()" class="px-6 py-2.5 text-white font-semibold rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="background: var(--signal);"><i class="fas fa-arrow-up-from-bracket" aria-hidden="true"></i> Upload files</button>
+                            <button id="quickStartImage" class="px-4 py-2.5 panel-2 rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="color: var(--ink);"><i class="fas fa-image" style="color: var(--signal);" aria-hidden="true"></i> Images</button>
+                            <button id="quickStartPdf" class="px-4 py-2.5 panel-2 rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="color: var(--ink);"><i class="fas fa-file-pdf" style="color: var(--circuit);" aria-hidden="true"></i> PDFs</button>
+                            <button id="quickStartOffice" class="px-4 py-2.5 panel-2 rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="color: var(--ink);"><i class="fas fa-file-lines" style="color: var(--muted);" aria-hidden="true"></i> Office</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: contextual action rail -->
+                <aside class="action-rail panel p-4" aria-label="Actions">
+                    <div class="flex items-center justify-between mb-1">
+                        <h2 class="font-display font-semibold text-base" style="color: var(--ink);">Actions</h2>
+                        <span class="status-strip" id="railHint" style="color: var(--muted);">select files</span>
+                    </div>
+                    <p class="status-strip mb-2" style="color: var(--muted);">tools activate for your selection</p>
+
+                    <!-- Quality control -->
+                    <div class="panel-2 rounded-xl p-3 mb-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <label for="globalCompressionQuality" class="text-xs font-medium" style="color: var(--ink);">Output quality</label>
+                            <span id="globalQualityDisplay" class="mono text-xs font-semibold" style="color: var(--signal);">70%</span>
+                        </div>
+                        <input type="range" id="globalCompressionQuality" min="10" max="100" value="70" class="q-slider w-full" aria-label="Output quality">
+                    </div>
+
+                    <!-- Tool grids -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <div id="imageTools" class="tool-group">
+                            <span class="group-label"><i class="fas fa-image mr-1" aria-hidden="true"></i> Image</span>
+                            <button data-action="resize" class="tool-btn" aria-label="Resize images"><i class="fas fa-expand" aria-hidden="true"></i> Resize</button>
+                            <button data-action="compress" class="tool-btn" aria-label="Compress images"><i class="fas fa-compress" aria-hidden="true"></i> Compress</button>
+                            <button data-action="convert" class="tool-btn" aria-label="Convert images"><i class="fas fa-exchange-alt" aria-hidden="true"></i> Convert</button>
+                            <button data-action="rotate" class="tool-btn" aria-label="Rotate images"><i class="fas fa-rotate" aria-hidden="true"></i> Rotate</button>
+                            <button data-action="mergeImages" class="tool-btn" aria-label="Merge images to PDF"><i class="fas fa-layer-group" aria-hidden="true"></i> Merge</button>
+                        </div>
+                        <div id="pdfTools" class="tool-group">
+                            <span class="group-label"><i class="fas fa-file-pdf mr-1" aria-hidden="true"></i> PDF</span>
+                            <button data-action="mergePdf" class="tool-btn" aria-label="Merge PDFs"><i class="fas fa-object-group" aria-hidden="true"></i> Merge</button>
+                            <button data-action="splitPdf" class="tool-btn" aria-label="Split PDF"><i class="fas fa-scissors" aria-hidden="true"></i> Split</button>
+                            <button data-action="compressPdf" class="tool-btn" aria-label="Compress PDF"><i class="fas fa-compress" aria-hidden="true"></i> Compress</button>
+                            <button data-action="protectPdf" class="tool-btn" aria-label="Password protect PDF"><i class="fas fa-lock" aria-hidden="true"></i> Protect</button>
+                            <button data-action="extractPdf" class="tool-btn" aria-label="Extract pages from PDF"><i class="fas fa-file-export" aria-hidden="true"></i> Extract</button>
+                        </div>
+                        <div class="tool-group">
+                            <span class="group-label"><i class="fas fa-box-archive mr-1" aria-hidden="true"></i> Export</span>
+                            <button data-action="exportZip" class="tool-btn" aria-label="Export all as ZIP"><i class="fas fa-file-zipper" aria-hidden="true"></i> ZIP</button>
+                            <button data-action="exportPdfZip" class="tool-btn" aria-label="Export all PDFs as ZIP"><i class="fas fa-file-pdf" aria-hidden="true"></i> PDF ZIP</button>
+                        </div>
+                    </div>
+                </aside>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Format panel backdrop -->
+    <div id="formatBackdrop"></div>
+
+    <!-- ===== QUEUE SIDEBAR ===== -->
+    <aside id="queueSidebar" class="queue-sidebar fixed top-0 right-0 h-full w-80 sm:w-96 shadow-2xl z-50 flex flex-col" style="border-left: 1px solid var(--line);">
+        <div class="flex items-center justify-between p-4" style="border-bottom: 1px solid var(--line);"><h2 class="font-display font-bold flex items-center gap-2" style="color: var(--ink);"><i class="fas fa-list-check" style="color: var(--signal);" aria-hidden="true"></i> Queue</h2><button id="queueClose" class="icon-btn" aria-label="Close queue"><i class="fas fa-times" aria-hidden="true"></i></button></div>
+        <div id="queueList" class="flex-1 overflow-y-auto p-4 space-y-3"><div class="flex flex-col items-center justify-center h-full text-sm" style="color: var(--muted);"><i class="fas fa-hourglass-half text-3xl mb-3" aria-hidden="true"></i><p>No active tasks</p></div></div>
+        <div class="p-4" style="border-top: 1px solid var(--line); background: var(--surface-2);"><button id="clearQueueBtn" class="w-full text-xs font-medium transition-all min-h-[44px]" style="color: var(--muted);">Clear completed</button></div>
+    </aside>
+    <div id="queueOverlay" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 hidden"></div>
+
+    <!-- ===== PREVIEW MODAL ===== -->
+    <div id="previewModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 modal-overlay hidden">
+        <div class="rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden scale-in" style="background: var(--surface); border: 1px solid var(--line);">
+            <div class="flex items-center justify-between p-4" style="border-bottom: 1px solid var(--line);">
+                <div class="flex items-center gap-3 overflow-hidden"><i id="previewFileIcon" class="fas fa-file" style="color: var(--muted);" aria-hidden="true"></i><span id="previewFileName" class="font-medium truncate" style="color: var(--ink);">file.jpg</span><span id="previewFileSize" class="mono text-xs flex-shrink-0" style="color: var(--muted);">12 KB</span></div>
+                <div class="flex items-center gap-2"><button id="previewDownload" class="icon-btn" aria-label="Download"><i class="fas fa-download" aria-hidden="true"></i></button><button id="previewClose" class="icon-btn" aria-label="Close preview"><i class="fas fa-times" aria-hidden="true"></i></button></div>
+            </div>
+            <div id="previewContent" class="flex-1 overflow-hidden relative flex items-center justify-center" style="background: var(--surface-2);">
+                <div id="previewWrapper" class="relative w-full h-full flex items-center justify-center overflow-hidden">
+                    <img id="previewImage" class="max-h-full max-w-full object-contain transition-transform duration-200 hidden" src="" alt="Preview" style="transform: scale(1) translate(0px, 0px);">
+                    <div id="previewPdfContainer" class="w-full h-full hidden overflow-auto"></div>
+                    <div id="previewPlaceholder" style="color: var(--muted);"><i class="fas fa-eye text-4xl block mb-2" aria-hidden="true"></i> Preview</div>
+                </div>
+            </div>
+            <div id="previewControls" class="p-3 flex items-center justify-between" style="border-top: 1px solid var(--line); background: var(--surface-2);">
+                <div class="flex items-center gap-3">
+                    <button id="previewZoomOut" class="icon-btn" aria-label="Zoom out"><i class="fas fa-search-minus" aria-hidden="true"></i></button>
+                    <span id="previewZoomLevel" class="mono text-xs" style="color: var(--muted);">100%</span>
+                    <button id="previewZoomIn" class="icon-btn" aria-label="Zoom in"><i class="fas fa-search-plus" aria-hidden="true"></i></button>
+                    <button id="previewResetZoom" class="icon-btn" aria-label="Reset zoom"><i class="fas fa-expand" aria-hidden="true"></i></button>
+                </div>
+                <div id="pdfNavControls" class="hidden items-center gap-3">
+                    <button id="pdfPrevPage" class="icon-btn" aria-label="Previous page"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+                    <span id="pdfPageInfo" class="mono text-xs" style="color: var(--muted);">1 / 1</span>
+                    <button id="pdfNextPage" class="icon-btn" aria-label="Next page"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== PROCESSING MODAL ===== -->
+    <div id="processingModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 modal-overlay hidden">
+        <div class="rounded-2xl shadow-2xl w-full max-w-md p-6 scale-in" style="background: var(--surface); border: 1px solid var(--line);">
+            <div class="flex items-center gap-4 mb-4">
+                <div id="processingIcon" class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: var(--signal-soft); color: var(--signal);"><i class="fas fa-circle-notch text-xl animate-spin" aria-hidden="true"></i></div>
+                <div class="flex-1 min-w-0"><h2 id="processingTitle" class="font-display font-bold truncate" style="color: var(--ink);">Processing…</h2><p id="processingFile" class="mono text-xs truncate" style="color: var(--muted);">file.pdf</p></div>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between mono text-xs" style="color: var(--muted);"><span id="processingStatus">Initializing</span><span id="processingProgressText">0%</span></div>
+                <div class="w-full h-1.5 rounded-full overflow-hidden" style="background: var(--surface-2);"><div id="processingProgressFill" class="h-full transition-all duration-300 ease-out" style="width: 0%; background: var(--signal);"></div></div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="processingCancel" class="px-4 py-2 text-sm font-medium transition-all min-h-[44px]" style="color: var(--muted);">Cancel</button>
+                <button id="processingRetry" class="hidden px-4 py-2 text-sm font-medium text-white rounded-xl transition-all min-h-[44px]" style="background: var(--signal);">Retry</button>
+                <button id="processingDone" class="hidden px-4 py-2 text-sm font-medium text-white rounded-xl transition-all min-h-[44px]" style="background: var(--circuit);">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== SETTINGS MODAL ===== -->
+    <div id="settingsModal" class="fixed inset-0 z-[80] flex items-center justify-center p-4 modal-overlay hidden">
+        <div class="rounded-2xl shadow-2xl w-full max-w-lg p-6 scale-in" style="background: var(--surface); border: 1px solid var(--line);">
+            <div class="flex items-center justify-between mb-6"><h2 class="font-display font-bold text-xl" style="color: var(--ink);">Settings</h2><button id="settingsClose" class="icon-btn" aria-label="Close settings"><i class="fas fa-times" aria-hidden="true"></i></button></div>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between"><label class="text-sm font-medium" style="color: var(--ink);">Theme</label><div class="seg"><button data-theme="light" class="theme-opt">Light</button><button data-theme="dark" class="theme-opt">Dark</button><button data-theme="system" class="theme-opt">System</button></div></div>
+                <div class="flex items-center justify-between"><label for="defaultQuality" class="text-sm font-medium" style="color: var(--ink);">Default compression quality</label><select id="defaultQuality" class="panel-2 rounded-xl text-sm p-2.5 outline-none mono min-h-[44px]" style="color: var(--ink);"><option value="90">High (90%)</option><option value="70" selected>Medium (70%)</option><option value="40">Low (40%)</option></select></div>
+                <div class="flex items-center justify-between"><label class="text-sm font-medium" style="color: var(--ink);">Auto-delete temporary files</label><button id="autoDeleteToggle" class="relative w-11 h-6 rounded-full transition-all" style="background: var(--line-strong);"><span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all"></span></button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MOBILE NAV ===== -->
+    <nav role="navigation" aria-label="Mobile navigation" class="fixed bottom-0 left-0 right-0 z-40 md:hidden backdrop-blur-xl bottom-nav px-4 py-2 flex items-center justify-around">
+        <button id="mobileUpload" aria-label="Upload new files" class="mobile-nav-btn flex flex-col items-center text-[10px] gap-0.5 transition-all min-h-[44px] min-w-[44px]"><i class="fas fa-plus text-xl" aria-hidden="true"></i> New</button>
+        <button id="mobileFiles" aria-label="Files" class="mobile-nav-btn flex flex-col items-center text-[10px] gap-0.5 transition-all min-h-[44px] min-w-[44px]"><i class="fas fa-folder-open text-lg" aria-hidden="true"></i> Files</button>
+        <button id="mobileQueue" aria-label="Open queue" class="mobile-nav-btn flex flex-col items-center text-[10px] gap-0.5 transition-all relative min-h-[44px] min-w-[44px]"><i class="fas fa-list-ul text-lg" aria-hidden="true"></i> Queue</button>
+    </nav>
+
+    <!-- ===== TOASTS ===== -->
+    <div id="toastContainer" class="space-y-2 pointer-events-none"></div>
+    <script>
+        // ======================================================================
+        //  STUDIO PRO - ENHANCED & SECURE
+        // ======================================================================
+
+        // ===== UTILITIES =====
+        function escapeHtml(s) { if (!s) return ''; return s.replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[m] || m); }
+
+        function safeText(el, text) {
+            el.textContent = text;
+        }
+
+        // ===== URL REGISTRY (Prevents memory leaks) =====
+        const urlRegistry = {
+            urls: new Set(),
+            create(file) {
+                const url = URL.createObjectURL(file);
+                this.urls.add(url);
+                return url;
+            },
+            revoke(url) {
+                if (url) {
+                    URL.revokeObjectURL(url);
+                    this.urls.delete(url);
+                }
+            },
+            revokeAll() {
+                this.urls.forEach(url => URL.revokeObjectURL(url));
+                this.urls.clear();
+            }
+        };
+
+        // ===== LAZY LOADING =====
+        const libraryCache = {};
+        async function loadLibrary(name, url) {
+            if (libraryCache[name]) return libraryCache[name];
+            if (window[name]) { libraryCache[name] = window[name]; return window[name]; }
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = url;
+                script.onload = () => {
+                    // Handle different global exports
+                    let lib = window[name];
+                    if (name === 'PDFLib') lib = window.PDFLib;
+                    else if (name === 'pdfjsLib') lib = window.pdfjsLib;
+                    else if (name === 'JSZip') lib = window.JSZip;
+                    else if (name === 'mammoth') lib = window.mammoth;
+                    else if (name === 'XLSX') lib = window.XLSX;
+                    else if (name === 'html2canvas') lib = window.html2canvas;
+                    else if (name === 'docx') lib = window.docx;
+                    else if (name === 'pptx2json') lib = window.pptx2json;
+                    libraryCache[name] = lib;
+                    resolve(lib);
+                };
+                script.onerror = () => reject(new Error('Failed to load library: ' + name + ' (' + url + '). Check your connection.'));
+                document.head.appendChild(script);
+            });
+        }
+
+        // Ensure JSZip is available before any new JSZip() call (fixes "JSZip is not defined")
+        async function ensureJSZip() {
+            if (window.JSZip) return window.JSZip;
+            return loadLibrary('JSZip', 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+        }
+
+        // ===== STATE =====
+        const state = {
+            theme: localStorage.getItem('studio-theme') || 'system',
+            activeTab: 'images',
+            images: [],
+            pdfs: [],
+            conversionFiles: [],
+            queue: [],
+            selectedIds: new Set(),
+            searchQuery: '',
+            settings: {
+                quality: parseInt(localStorage.getItem('studio-quality')) || 70,
+                autoDelete: localStorage.getItem('studio-autoDelete') === 'true',
+                bulkFormat: null,
+            },
+            preview: { type: null, id: null, zoom: 1, panX: 0, panY: 0 }
+        };
+        let fileIdCounter = 0,
+            taskIdCounter = 0;
+
+        // ===== DOM REFS =====
+        const $ = (id) => document.getElementById(id);
+        const dropZone = $('dropZone'),
+            fileInput = $('fileInput'),
+            fileGrid = $('fileGrid'),
+            conversionList = $('conversionList'),
+            conversionSection = $('conversionSection'),
+            emptyState = $('emptyState'),
+            heroUpload = $('heroUpload'),
+            imgCount = $('imgCount'),
+            pdfCount = $('pdfCount'),
+            convCount = $('convCount'),
+            imageTools = $('imageTools'),
+            pdfTools = $('pdfTools'),
+            queueSidebar = $('queueSidebar'),
+            queueOverlay = $('queueOverlay'),
+            queueList = $('queueList'),
+            queueBadge = $('queueBadge'),
+            themeToggle = $('themeToggle'),
+            previewModal = $('previewModal'),
+            settingsModal = $('settingsModal'),
+            processingModal = $('processingModal'),
+            toastContainer = $('toastContainer'),
+            searchInput = $('searchInput'),
+            selectedCount = $('selectedCount'),
+            bulkCount = $('bulkCount'),
+            bulkConvertBtn = $('bulkConvertBtn'),
+            addToConvertBtn = $('addToConvertBtn'),
+            globalQualitySlider = $('globalCompressionQuality'),
+            globalQualityDisplay = $('globalQualityDisplay');
+
+        // ===== FORMAT SELECTOR REFS =====
+        const formatTrigger = $('formatTrigger');
+        const formatPanel = $('formatPanel');
+        const formatDisplay = $('formatDisplay');
+        const formatSearch = $('formatSearch');
+        const formatGrid = $('formatGrid');
+        const categoryTabs = document.querySelectorAll('.category-tab');
+
+        // ===== FORMAT DATA =====
+        // Note: EPUB/MOBI/AZW3 conversion requires server-side tools and are not available offline.
+        // Only image and document formats are supported client-side.
+        const FORMATS = {
+            ebook: [
+                { value: 'application/pdf', label: 'PDF', icon: 'fa-file-pdf' },
+                { value: 'text/plain', label: 'TXT (text extract)', icon: 'fa-file-alt' },
+            ],
+            image: [
+                { value: 'image/png', label: 'PNG', icon: 'fa-image' },
+                { value: 'image/jpeg', label: 'JPG', icon: 'fa-image' },
+                { value: 'image/webp', label: 'WebP', icon: 'fa-image' },
+                { value: 'image/bmp', label: 'BMP', icon: 'fa-image' },
+                { value: 'image/gif', label: 'GIF', icon: 'fa-image' },
+                { value: 'image/svg+xml', label: 'SVG', icon: 'fa-vector-square' },
+                { value: 'image/tiff', label: 'TIFF', icon: 'fa-image' },
+                { value: 'image/heic', label: 'HEIC', icon: 'fa-image' },
+                { value: 'image/avif', label: 'AVIF', icon: 'fa-image' },
+                { value: 'image/ico', label: 'ICO', icon: 'fa-window-maximize' },
+            ],
+            document: [
+                { value: 'application/pdf', label: 'PDF', icon: 'fa-file-pdf' },
+                { value: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', label: 'DOCX', icon: 'fa-file-word' },
+                { value: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', label: 'XLSX', icon: 'fa-file-excel' },
+                { value: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', label: 'PPTX', icon: 'fa-file-powerpoint' },
+                { value: 'text/html', label: 'HTML', icon: 'fa-code' },
+                { value: 'text/plain', label: 'TXT', icon: 'fa-file-alt' },
+                { value: 'application/rtf', label: 'RTF', icon: 'fa-file-alt' },
+                { value: 'application/vnd.oasis.opendocument.text', label: 'ODT', icon: 'fa-file-alt' },
+            ]
+        };
+
+        let currentCategory = 'image';
+        let formatSearchQuery = '';
+
+        // ===== FORMAT SELECTOR LOGIC =====
+        function renderFormats() {
+            const formats = FORMATS[currentCategory] || [];
+            const filtered = formats.filter(f =>
+                f.label.toLowerCase().includes(formatSearchQuery.toLowerCase()) ||
+                f.value.toLowerCase().includes(formatSearchQuery.toLowerCase())
+            );
+
+            formatGrid.innerHTML = '';
+            if (!filtered.length) {
+                const div = document.createElement('div');
+                div.className = 'col-span-full text-center py-6 text-slate-400 dark:text-slate-500 text-sm';
+                div.innerHTML = `<i class="fas fa-search text-xl block mb-2 opacity-50"></i> No formats found for "${formatSearchQuery}"`;
+                formatGrid.appendChild(div);
+                return;
+            }
+
+            filtered.forEach(f => {
+                const isSelected = state.settings.bulkFormat === f.value;
+                const div = document.createElement('div');
+                div.className = `format-card ${isSelected ? 'selected' : ''}`;
+                div.dataset.value = f.value;
+                div.dataset.label = f.label;
+                div.dataset.icon = f.icon;
+                div.dataset.category = currentCategory;
+                div.setAttribute('role', 'button');
+                div.setAttribute('tabindex', '0');
+                div.setAttribute('aria-label', `Select ${f.label} format`);
+                
+                div.innerHTML = `
+                    <i class="fas ${f.icon} text-slate-400 dark:text-slate-500"></i>
+                    <span>${f.label}</span>
+                    <span class="check"><i class="fas fa-check-circle"></i></span>
+                `;
+
+                div.addEventListener('click', () => {
+                    const value = div.dataset.value;
+                    const label = div.dataset.label;
+                    selectFormat(value, label);
+                });
+
+                div.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        div.click();
+                    }
+                });
+
+                formatGrid.appendChild(div);
+            });
+        }
+
+        function selectFormat(value, label) {
+            state.settings.bulkFormat = value;
+            safeText(formatDisplay, label);
+            formatDisplay.className = 'selected-label';
+            bulkConvertBtn.disabled = false;
+            bulkConvertBtn.textContent = `Convert ${label} →`;
+            closePanel();
+            renderFormats();
+            updateBulkBar();
+        }
+
+        const formatBackdrop = document.getElementById('formatBackdrop');
+
+        function positionPanel() {
+            const r = formatTrigger.getBoundingClientRect();
+            const panelW = Math.min(520, window.innerWidth - 32);
+            const panelH = formatPanel.offsetHeight || 360;
+            const gap = 8;
+            // horizontal: align right edge of panel to trigger, clamp to viewport
+            let left = r.right - panelW;
+            left = Math.max(16, Math.min(left, window.innerWidth - panelW - 16));
+            // vertical: prefer above the trigger; if not enough room, drop below
+            let top = r.top - panelH - gap;
+            if (top < 16) top = r.bottom + gap;
+            formatPanel.style.left = left + 'px';
+            formatPanel.style.top = top + 'px';
+        }
+
+        function openPanel() {
+            formatPanel.classList.add('open');
+            const chevron = formatTrigger.querySelector('.fa-chevron-down');
+            if (chevron) chevron.style.transform = 'rotate(180deg)';
+            renderFormats();
+            // measure then place (panel must be displayed to read its height)
+            positionPanel();
+            requestAnimationFrame(positionPanel);
+            setTimeout(() => formatSearch.focus(), 100);
+            formatBackdrop.classList.add('open');
+            if (window.innerWidth < 640) document.body.style.overflow = 'hidden';
+        }
+
+        function closePanel() {
+            formatPanel.classList.remove('open');
+            const chevron = formatTrigger.querySelector('.fa-chevron-down');
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
+            formatBackdrop.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        formatBackdrop.addEventListener('click', closePanel);
+        window.addEventListener('scroll', () => { if (formatPanel.classList.contains('open')) positionPanel(); }, true);
+        window.addEventListener('resize', () => { if (formatPanel.classList.contains('open')) positionPanel(); });
+
+        function switchCategory(category) {
+            if (category === currentCategory) return;
+            currentCategory = category;
+            categoryTabs.forEach(tab => {
+                const isActive = tab.dataset.category === category;
+                tab.classList.toggle('active', isActive);
+                tab.setAttribute('aria-selected', isActive);
+            });
+            renderFormats();
+        }
+
+        // ===== FORMAT SELECTOR EVENTS =====
+        formatTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (formatPanel.classList.contains('open')) closePanel();
+            else openPanel();
+        });
+
+        document.addEventListener('click', (e) => {
+            const target = e.target;
+            const isInside = formatTrigger.contains(target) || formatPanel.contains(target);
+            if (!isInside && formatPanel.classList.contains('open')) closePanel();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && formatPanel.classList.contains('open')) closePanel();
+            if (e.key === 'Enter' && formatPanel.classList.contains('open')) {
+                const firstCard = formatGrid.querySelector('.format-card');
+                if (firstCard) firstCard.click();
+            }
+        });
+
+        formatSearch.addEventListener('input', (e) => {
+            formatSearchQuery = e.target.value;
+            renderFormats();
+        });
+
+        categoryTabs.forEach(tab => {
+            tab.addEventListener('click', () => switchCategory(tab.dataset.category));
+            tab.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    switchCategory(tab.dataset.category);
+                }
+            });
+        });
+
+        // ===== TOAST =====
+        function showToast(msg, type = 'info', duration = 4000) {
+            const colors = {
+                info: 'bg-indigo-500 text-white shadow-indigo-500/30',
+                success: 'bg-emerald-500 text-white shadow-emerald-500/30',
+                error: 'bg-rose-500 text-white shadow-rose-500/30',
+                warning: 'bg-amber-500 text-white shadow-amber-500/30'
+            };
+            const icons = { info: 'fa-info-circle', success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle' };
+            const t = document.createElement('div');
+            t.className =
+                `pointer-events-auto flex items-center gap-3 p-3 rounded-xl shadow-lg ${colors[type] || colors.info} transform transition-all duration-300 ease-out translate-x-full opacity-0`;
+            t.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span class="text-sm font-medium">${escapeHtml(msg)}</span>`;
+            toastContainer.appendChild(t);
+            requestAnimationFrame(() => { t.classList.remove('translate-x-full', 'opacity-0'); });
+            setTimeout(() => {
+                t.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => t.remove(), 400);
+            }, duration);
+        }
+
+        // ===== THEME =====
+        function applyTheme(theme) {
+            const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.body.classList.toggle('dark', isDark);
+            localStorage.setItem('studio-theme', theme);
+            state.theme = theme;
+            const icon = themeToggle.querySelector('i');
+            if (isDark) icon.className = 'fas fa-sun';
+            else icon.className = 'fas fa-moon';
+            document.querySelectorAll('.theme-opt').forEach(el => {
+                el.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-sm');
+                if (el.dataset.theme === theme) el.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm');
+            });
+        }
+        themeToggle.addEventListener('click', () => {
+            const themes = ['light', 'dark', 'system'];
+            let idx = themes.indexOf(state.theme);
+            idx = (idx + 1) % themes.length;
+            applyTheme(themes[idx]);
+        });
+
+        // ===== GLOBAL QUALITY =====
+        globalQualitySlider.addEventListener('input', () => {
+            const val = parseInt(globalQualitySlider.value);
+            safeText(globalQualityDisplay, val + '%');
+            state.settings.quality = val;
+            scheduleEstimateRefresh();
+            scheduleCardEstimateRefresh();
+        });
+
+        // Live "compressed size" estimate on image grid cards (reacts to quality slider).
+        const cardEstimateCache = new Map();
+        let cardEstimateToken = 0;
+        let cardEstimateDebounce = null;
+        function scheduleCardEstimateRefresh() {
+            clearTimeout(cardEstimateDebounce);
+            cardEstimateDebounce = setTimeout(refreshCardEstimates, 220);
+        }
+        async function refreshCardEstimates() {
+            const token = ++cardEstimateToken;
+            const quality = state.settings.quality;
+            const spans = document.querySelectorAll('.card-est');
+            for (const span of spans) {
+                const id = parseInt(span.dataset.id);
+                const file = state.images.find(f => f.id === id);
+                if (!file) continue;
+                const key = `${id}|jpeg|${quality}`;
+                let bytes = cardEstimateCache.get(key);
+                if (bytes === undefined) {
+                    span.textContent = '…';
+                    try {
+                        const blob = await convertToImage({ file: file.file, type: file.type, name: file.name }, 'image/jpeg', quality / 100);
+                        bytes = blob.size;
+                    } catch (e) { bytes = null; }
+                    cardEstimateCache.set(key, bytes);
+                }
+                if (token !== cardEstimateToken) return;
+                if (bytes == null) { span.textContent = ''; continue; }
+                const pct = file.size ? Math.round(((bytes - file.size) / file.size) * 100) : 0;
+                const arrow = bytes < file.size ? '↓' : (bytes > file.size ? '↑' : '');
+                span.innerHTML = `· <span style="color:var(--circuit);font-weight:600">${formatBytes(bytes)}</span>` +
+                    (pct !== 0 ? ` <span style="color:${bytes<file.size?'var(--circuit)':'var(--signal)'}">${arrow}${Math.abs(pct)}%</span>` : '');
+            }
+        }
+
+        // ===== FILE HANDLING =====
+        function formatBytes(b) { if (b === 0) return '0 B'; const k = 1024,
+                s = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(b) / Math.log(k)); return parseFloat((b / Math.pow(k, i)).toFixed(2)) + ' ' + s[i]; }
+
+        function generateId() { return ++fileIdCounter; }
+
+        function getFileExtension(name) { return name.split('.').pop().toLowerCase(); }
+
+        function getMimeType(ext) {
+            const map = {
+                jpg: 'image/jpeg',
+                jpeg: 'image/jpeg',
+                png: 'image/png',
+                webp: 'image/webp',
+                bmp: 'image/bmp',
+                ico: 'image/ico',
+                avif: 'image/avif',
+                gif: 'image/gif',
+                tiff: 'image/tiff',
+                tif: 'image/tiff',
+                heic: 'image/heic',
+                heif: 'image/heic',
+                svg: 'image/svg+xml',
+                pdf: 'application/pdf',
+                docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                html: 'text/html',
+                htm: 'text/html'
+            };
+            return map[ext] || 'application/octet-stream';
+        }
+
+        function isImageType(mime) { return mime.startsWith('image/'); }
+
+        function isOfficeType(mime) {
+            return mime.includes('wordprocessingml') || mime.includes('spreadsheetml') || mime.includes('presentationml') ||
+                mime === 'text/html';
+        }
+
+        // ===== SAFE RENDER HELPERS =====
+        function renderFileCard(file, type) {
+            const isSelected = state.selectedIds.has(file.id);
+            const div = document.createElement('div');
+            div.className =
+                `file-card bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 overflow-hidden shadow-sm ${isSelected ? 'selected' : ''}`;
+            div.draggable = true;
+            div.dataset.id = file.id;
+            div.dataset.type = type;
+            div.dataset.index = state[type === 'image' ? 'images' : 'pdfs'].indexOf(file);
+            div.tabIndex = 0;
+            div.setAttribute('role', 'checkbox');
+            div.setAttribute('aria-checked', isSelected);
+            div.setAttribute('aria-label', file.name + ' (' + formatBytes(file.size) + ')');
+            div.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); openPreview(type, file.id); }
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    if (state.selectedIds.has(file.id)) state.selectedIds.delete(file.id);
+                    else state.selectedIds.add(file.id);
+                    renderAll();
+                }
+            });
+
+            // Thumbnail area
+            const thumbWrapper = document.createElement('div');
+            thumbWrapper.className = 'relative aspect-square bg-slate-100 dark:bg-slate-900/50';
+            const img = document.createElement('img');
+            img.src = file.thumbnail;
+            img.alt = file.name;
+            img.className = 'w-full h-full object-contain p-2';
+            img.loading = 'lazy';
+            thumbWrapper.appendChild(img);
+
+            // Checkbox
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className =
+                'absolute top-2 left-2 w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-indigo-500 focus:ring-indigo-500 cursor-pointer';
+            cb.checked = state.selectedIds.has(file.id);
+            cb.dataset.id = file.id;
+            cb.addEventListener('change', (e) => {
+                if (e.target.checked) state.selectedIds.add(file.id);
+                else state.selectedIds.delete(file.id);
+                renderAll();
+            });
+            thumbWrapper.appendChild(cb);
+
+            // Preview button
+            const previewBtn = document.createElement('button');
+            previewBtn.className =
+                'absolute top-2 right-2 p-1 bg-black/20 hover:bg-black/40 backdrop-blur-sm rounded-lg text-white text-xs transition-all';
+            previewBtn.dataset.action = 'preview';
+            previewBtn.dataset.id = file.id;
+            previewBtn.innerHTML = '<i class="fas fa-eye"></i>';
+            previewBtn.addEventListener('click', (e) => { e.stopPropagation();
+                openPreview(type, file.id); });
+            thumbWrapper.appendChild(previewBtn);
+
+            div.appendChild(thumbWrapper);
+
+            // Info area
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'p-3';
+            const nameP = document.createElement('p');
+            nameP.className = 'text-sm font-medium text-slate-700 dark:text-slate-200 truncate';
+            nameP.title = file.name;
+            safeText(nameP, file.name);
+            infoDiv.appendChild(nameP);
+
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'flex items-center justify-between text-xs text-slate-400 dark:text-slate-500';
+            const sizeSpan = document.createElement('span');
+            if (type === 'image') {
+                sizeSpan.innerHTML = `${formatBytes(file.size)} <span class="card-est" data-id="${file.id}"></span>`;
+            } else {
+                safeText(sizeSpan, formatBytes(file.size));
+            }
+            metaDiv.appendChild(sizeSpan);
+            if (file.width) {
+                const dimSpan = document.createElement('span');
+                safeText(dimSpan, `${file.width}×${file.height}`);
+                metaDiv.appendChild(dimSpan);
+            }
+            infoDiv.appendChild(metaDiv);
+
+            const bottomDiv = document.createElement('div');
+            bottomDiv.className = 'flex items-center justify-between mt-2';
+            const typeSpan = document.createElement('span');
+            typeSpan.className = 'text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400';
+            safeText(typeSpan, (file.type || '').split('/')[1] || (type === 'pdf' ? 'pdf' : 'file'));
+            bottomDiv.appendChild(typeSpan);
+
+            const actionDiv = document.createElement('div');
+            actionDiv.className = 'flex gap-1';
+            // Download
+            const dlBtn = document.createElement('button');
+            dlBtn.className =
+                'p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-500 transition-all min-h-[36px] min-w-[36px]';
+            dlBtn.dataset.action = 'download';
+            dlBtn.dataset.id = file.id;
+            dlBtn.innerHTML = '<i class="fas fa-download text-xs"></i>';
+            dlBtn.addEventListener('click', (e) => { e.stopPropagation();
+                downloadFile(type, file.id); });
+            actionDiv.appendChild(dlBtn);
+
+            // Delete
+            const delBtn = document.createElement('button');
+            delBtn.className =
+                'p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-red-500 transition-all min-h-[36px] min-w-[36px]';
+            delBtn.dataset.action = 'delete';
+            delBtn.dataset.id = file.id;
+            delBtn.innerHTML = '<i class="fas fa-trash-alt text-xs"></i>';
+            delBtn.addEventListener('click', (e) => { e.stopPropagation();
+                deleteFile(type, file.id); });
+            actionDiv.appendChild(delBtn);
+
+            // Add to conversion
+            const convBtn = document.createElement('button');
+            convBtn.className =
+                'p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-500 transition-all min-h-[36px] min-w-[36px]';
+            convBtn.dataset.action = 'addConvert';
+            convBtn.dataset.id = file.id;
+            convBtn.innerHTML = '<i class="fas fa-exchange-alt text-xs"></i>';
+            convBtn.title = 'Add to conversion queue';
+            convBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const f = type === 'image' ? state.images.find(i => i.id === file.id) : state.pdfs.find(p => p.id ===
+                    file.id);
+                if (f) addToConversion([f.file]);
+            });
+            actionDiv.appendChild(convBtn);
+
+            bottomDiv.appendChild(actionDiv);
+            infoDiv.appendChild(bottomDiv);
+            div.appendChild(infoDiv);
+
+            // Drag events
+            div.addEventListener('dragstart', handleDragStart);
+            div.addEventListener('dragend', (e) => div.classList.remove('opacity-50'));
+            div.addEventListener('dragover', (e) => { e.preventDefault();
+                div.classList.add('drag-over'); });
+            div.addEventListener('dragleave', (e) => div.classList.remove('drag-over'));
+            div.addEventListener('drop', handleDrop);
+
+            return div;
+        }
+
+        // ===== RENDER FUNCTIONS =====
+        function renderAll() {
+            updateCounts();
+            renderGrids();
+            renderConversionList();
+            updateConvertHints();
+            renderQueue();
+            updateToolbar();
+            updateEmptyState();
+            updateSelectedCount();
+            updateBulkBar();
+            updateFormatSelectorState();
+            scheduleCardEstimateRefresh();
+        }
+
+        function updateCounts() {
+            safeText(imgCount, state.images.length);
+            safeText(pdfCount, state.pdfs.length);
+            safeText(convCount, state.conversionFiles.length);
+            const fc = $('fileCount');
+            if (fc) safeText(fc, state.images.length + state.pdfs.length);
+        }
+
+        function renderGrids() {
+            fileGrid.innerHTML = '';
+            const query = state.searchQuery.toLowerCase();
+            // Mixed list: images and PDFs together, in upload order.
+            const all = [...state.images.map(f => ({ f, type: 'image' })),
+                         ...state.pdfs.map(f => ({ f, type: 'pdf' }))];
+            const filtered = all.filter(x => x.f.name.toLowerCase().includes(query));
+            if (!all.length) return;
+            if (!filtered.length) {
+                const div = document.createElement('div');
+                div.className = 'col-span-full text-center py-8 text-slate-400 dark:text-slate-500';
+                safeText(div, 'No files match your search.');
+                fileGrid.appendChild(div);
+                return;
+            }
+            filtered.forEach(x => fileGrid.appendChild(renderFileCard(x.f, x.type)));
+        }
+
+        // ===== DRAG & DROP =====
+        let dragSrcIndex = null;
+        let dragSrcType = null;
+
+        function handleDragStart(e) {
+            dragSrcIndex = parseInt(this.dataset.index);
+            dragSrcType = this.dataset.type;
+            this.classList.add('opacity-50');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', '');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            const targetIndex = parseInt(this.dataset.index);
+            const type = this.dataset.type === 'image' ? 'images' : 'pdfs';
+            if (dragSrcType && dragSrcType !== this.dataset.type) { dragSrcIndex = null; dragSrcType = null; return; }
+            if (dragSrcIndex !== null && targetIndex !== dragSrcIndex) {
+                const items = type === 'images' ? state.images : state.pdfs;
+                const [removed] = items.splice(dragSrcIndex, 1);
+                items.splice(targetIndex, 0, removed);
+                renderAll();
+                showToast('Reorder updated', 'info');
+            }
+            dragSrcIndex = null;
+            dragSrcType = null;
+        }
+
+        // ===== CONVERSION LIST =====
+        function renderConversionList() {
+            conversionList.innerHTML = '';
+            const items = state.conversionFiles;
+            if (!items.length) {
+                const div = document.createElement('div');
+                div.className = 'empty-conversion';
+                div.innerHTML =
+                    `<i class="fas fa-file-import text-3xl block mb-3 text-slate-300 dark:text-slate-600"></i><p>No files in conversion queue. Add files from the upload area or from the image/PDF grids.</p>`;
+                conversionList.appendChild(div);
+                return;
+            }
+
+            items.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'conv-row';
+                row.dataset.id = item.id;
+
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'file-info';
+                const nameSpan = document.createElement('div');
+                nameSpan.className = 'file-name';
+                const icon = item.type === 'application/pdf' ? 'fa-file-pdf' : (isImageType(item.type) ?
+                    'fa-file-image' : 'fa-file-alt');
+                const color = item.type === 'application/pdf' ? 'text-red-400' : (isImageType(item.type) ?
+                    'text-indigo-400' : 'text-blue-400');
+                nameSpan.innerHTML = `<i class="fas ${icon} ${color} mr-2"></i>${escapeHtml(item.name)}`;
+                infoDiv.appendChild(nameSpan);
+                const sizeSpan = document.createElement('div');
+                sizeSpan.className = 'file-size';
+                sizeSpan.innerHTML = `${formatBytes(item.size)} <span class="est-size" data-id="${item.id}"></span>`;
+                infoDiv.appendChild(sizeSpan);
+                row.appendChild(infoDiv);
+
+                // Select
+                const select = document.createElement('select');
+                select.className = 'conv-output';
+                select.dataset.id = item.id;
+                const options = getOutputOptions(item.type);
+                options.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt.value;
+                    option.textContent = opt.label;
+                    if (opt.value === item.outputFormat) option.selected = true;
+                    select.appendChild(option);
+                });
+                select.addEventListener('change', (e) => {
+                    const id = parseInt(e.target.dataset.id);
+                    updateConversionOutput(id, e.target.value);
+                });
+                row.appendChild(select);
+
+                // Per-row quality (only meaningful for lossy image outputs)
+                const qualityCell = document.createElement('div');
+                qualityCell.className = 'row-quality';
+                const lossy = isImageType(item.type) && ['image/jpeg', 'image/webp'].includes(item.outputFormat);
+                if (lossy) {
+                    const q = item.quality || state.settings.quality;
+                    qualityCell.innerHTML =
+                        `<input type="range" class="row-q-slider" min="10" max="100" value="${q}" data-id="${item.id}" aria-label="Quality for ${escapeHtml(item.name)}">` +
+                        `<span class="row-q-val mono">${q}%</span>`;
+                    const slider = qualityCell.querySelector('.row-q-slider');
+                    const valSpan = qualityCell.querySelector('.row-q-val');
+                    slider.addEventListener('input', (e) => {
+                        const v = parseInt(e.target.value);
+                        valSpan.textContent = v + '%';
+                        item.quality = v;
+                        scheduleRowEstimate(item.id);
+                    });
+                } else {
+                    qualityCell.innerHTML = `<span class="row-q-na mono">—</span>`;
+                }
+                row.appendChild(qualityCell);
+
+                // Actions
+                const actionDiv = document.createElement('div');
+                actionDiv.className = 'action-btns';
+
+                const convertBtn = document.createElement('button');
+                convertBtn.className = 'row-convert';
+                convertBtn.dataset.id = item.id;
+                convertBtn.innerHTML = '<i class="fas fa-arrow-right"></i>';
+                convertBtn.title = 'Convert & download this file';
+                convertBtn.setAttribute('aria-label', 'Convert ' + item.name);
+                convertBtn.addEventListener('click', () => convertSingleItem(item.id));
+                actionDiv.appendChild(convertBtn);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-btn';
+                removeBtn.dataset.id = item.id;
+                removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                removeBtn.title = 'Remove';
+                removeBtn.addEventListener('click', () => {
+                    const id = parseInt(removeBtn.dataset.id);
+                    removeConversionFile(id);
+                });
+                actionDiv.appendChild(removeBtn);
+
+                row.appendChild(actionDiv);
+                conversionList.appendChild(row);
+            });
+            scheduleEstimateRefresh();
+        }
+
+        function getOutputOptions(inputMime) {
+            const allFormats = [
+                { value: 'image/png', label: 'PNG' },
+                { value: 'image/jpeg', label: 'JPG' },
+                { value: 'image/webp', label: 'WebP' },
+                { value: 'image/bmp', label: 'BMP' },
+                { value: 'image/gif', label: 'GIF' },
+                { value: 'application/pdf', label: 'PDF' },
+                { value: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', label: 'DOCX' },
+                { value: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', label: 'XLSX' },
+                { value: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', label: 'PPTX' }
+            ];
+            const isImage = isImageType(inputMime);
+            const isPdf = inputMime === 'application/pdf';
+            const isOffice = isOfficeType(inputMime);
+            if (isImage) return allFormats.filter(f => isImageType(f.value) || f.value === 'application/pdf');
+            if (isPdf) return allFormats.filter(f => isImageType(f.value) || f.value === 'application/pdf' || isOfficeType(f
+                .value));
+            if (isOffice) return allFormats.filter(f => f.value === 'application/pdf' || isImageType(f.value));
+            return allFormats;
+        }
+
+        // ===== UPDATE FUNCTIONS =====
+        function updateBulkBar() {
+            const count = state.conversionFiles.length;
+            safeText(bulkCount, count);
+            if (!state.settings.bulkFormat || count === 0) {
+                bulkConvertBtn.disabled = true;
+                bulkConvertBtn.textContent = 'Convert →';
+            } else {
+                bulkConvertBtn.disabled = false;
+                let label = state.settings.bulkFormat;
+                for (const cat of ['ebook', 'image', 'document']) {
+                    const found = FORMATS[cat].find(f => f.value === state.settings.bulkFormat);
+                    if (found) { label = found.label; break; }
+                }
+                bulkConvertBtn.textContent = `Convert ${label} →`;
+            }
+        }
+
+        function updateFormatSelectorState() {
+            if (state.settings.bulkFormat) {
+                const found = Object.values(FORMATS).flat().find(f => f.value === state.settings.bulkFormat);
+                if (found) {
+                    formatDisplay.textContent = found.label;
+                    formatDisplay.className = 'selected-label';
+                }
+            } else {
+                formatDisplay.textContent = 'Select format';
+                formatDisplay.className = 'placeholder';
+            }
+        }
+
+        function updateSelectedCount() {
+            const count = state.selectedIds.size;
+            if (count > 0) {
+                safeText(selectedCount, `${count} selected`);
+                selectedCount.classList.remove('hidden');
+            } else {
+                selectedCount.classList.add('hidden');
+            }
+        }
+
+        function updateToolbar() {
+            const hasImages = state.images.some(i => state.selectedIds.has(i.id));
+            const hasPdfs = state.pdfs.some(p => state.selectedIds.has(p.id));
+            document.querySelectorAll('#imageTools .tool-btn').forEach(b => b.disabled = !hasImages);
+            document.querySelectorAll('#pdfTools .tool-btn').forEach(b => b.disabled = !hasPdfs);
+        }
+
+        function updateEmptyState() {
+            const hasFiles = state.images.length > 0 || state.pdfs.length > 0 || state.conversionFiles.length > 0;
+            if (!hasFiles) {
+                emptyState.classList.remove('hidden');
+                fileGrid.classList.add('hidden');
+                conversionSection.classList.add('hidden');
+                heroUpload.classList.remove('compact');
+            } else {
+                emptyState.classList.add('hidden');
+                fileGrid.classList.remove('hidden');
+                conversionSection.classList.remove('hidden');
+                heroUpload.classList.add('compact');
+            }
+        }
+
+        // ===== ACTIONS =====
+        async function addToConversion(files) {
+            for (const file of files) {
+                const id = generateId();
+                const ext = getFileExtension(file.name);
+                const mime = getMimeType(ext);
+                if (!mime || mime === 'application/octet-stream') {
+                    showToast(`Skipping ${file.name} (unknown type)`, 'warning');
+                    continue;
+                }
+                let defaultOutput = 'image/png';
+                if (mime === 'application/pdf') defaultOutput = 'image/jpeg';
+                else if (isImageType(mime)) defaultOutput = 'image/png';
+                else if (mime.includes('wordprocessingml')) defaultOutput = 'application/pdf';
+                else if (mime.includes('spreadsheetml')) defaultOutput = 'application/pdf';
+                else if (mime.includes('presentationml')) defaultOutput = 'application/pdf';
+                else if (mime === 'text/html') defaultOutput = 'application/pdf';
+                state.conversionFiles.push({
+                    id,
+                    file,
+                    name: file.name,
+                    size: file.size,
+                    type: mime,
+                    outputFormat: defaultOutput,
+                    quality: state.settings.quality,
+                    status: 'ready'
+                });
+            }
+            if (files.length) showToast(`Added ${files.length} file(s) to conversion queue`, 'success');
+            renderAll();
+        }
+
+        // Push currently-selected grid files into the conversion box, then scroll to it.
+        async function addSelectedToConvert() {
+            const sel = [...state.selectedIds];
+            if (!sel.length) { showToast('Select files first.', 'error'); return; }
+            const picked = [...state.images, ...state.pdfs].filter(f => sel.includes(f.id)).map(f => f.file);
+            if (!picked.length) { showToast('No convertible files selected.', 'error'); return; }
+            await addToConversion(picked);
+            const box = document.getElementById('conversionSection');
+            if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function removeConversionFile(id) {
+            if (!confirm('Remove this file?')) return;
+            state.conversionFiles = state.conversionFiles.filter(f => f.id !== id);
+            renderAll();
+        }
+
+        function updateConversionOutput(id, format) {
+            const item = state.conversionFiles.find(f => f.id === id);
+            if (item) { item.outputFormat = format;
+                renderAll(); }
+        }
+
+        function updateConversionQuality(id, quality) {
+            const item = state.conversionFiles.find(f => f.id === id);
+            if (item) { item.quality = quality;
+                renderAll(); }
+        }
+
+        // ===== DELETE, DOWNLOAD, PREVIEW =====
+        function deleteFile(type, id) {
+            if (!confirm(`Delete this ${type}?`)) return;
+            if (type === 'image') {
+                const idx = state.images.findIndex(i => i.id === id);
+                if (idx > -1) {
+                    urlRegistry.revoke(state.images[idx].thumbnail);
+                    state.images.splice(idx, 1);
+                    state.selectedIds.delete(id);
+                    showToast('Image removed', 'info');
+                }
+            } else {
+                const idx = state.pdfs.findIndex(p => p.id === id);
+                if (idx > -1) { state.pdfs.splice(idx, 1);
+                    state.selectedIds.delete(id);
+                    showToast('PDF removed', 'info'); }
+            }
+            renderAll();
+        }
+
+        async function downloadFile(type, id) {
+            let file = type === 'image' ? state.images.find(i => i.id === id)?.file : state.pdfs.find(p => p.id === id)
+                ?.file;
+            if (!file) return;
+            const url = urlRegistry.create(file);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = file.name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => urlRegistry.revoke(url), 5000);
+            showToast(`Downloading ${file.name}`, 'success');
+        }
+
+        function openPreview(type, id) {
+            const file = type === 'image' ? state.images.find(i => i.id === id) : state.pdfs.find(p => p.id === id);
+            if (!file) return;
+            state.preview.type = type;
+            state.preview.id = id;
+            state.preview.zoom = 1;
+            state.preview.panX = 0;
+            state.preview.panY = 0;
+            previewModal.classList.remove('hidden');
+            safeText($('previewFileName'), file.name);
+            safeText($('previewFileSize'), formatBytes(file.size));
+            $('previewFileIcon').className = type === 'image' ? 'fas fa-image text-indigo-400' :
+                'fas fa-file-pdf text-rose-400';
+            $('previewZoomLevel').textContent = '100%';
+            const img = $('previewImage'),
+                container = $('previewPdfContainer'),
+                wrapper = $('previewWrapper');
+            wrapper.style.transform = 'scale(1) translate(0px, 0px)';
+            if (type === 'image') {
+                img.classList.remove('hidden');
+                img.src = file.thumbnail;
+                container.classList.add('hidden');
+                $('pdfNavControls').classList.add('hidden');
+                img.style.transform = 'scale(1) translate(0px, 0px)';
+            } else {
+                img.classList.add('hidden');
+                container.classList.remove('hidden');
+                $('pdfNavControls').classList.remove('hidden');
+                renderPdfPreview(file);
+            }
+            $('previewDownload').onclick = () => downloadFile(type, id);
+        }
+
+        async function renderPdfPreview(file) {
+            const container = $('previewPdfContainer');
+            container.innerHTML = '';
+            try {
+                const buf = await file.file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+                const page = await pdf.getPage(1);
+                const viewport = page.getViewport({ scale: 1.0 });
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                const ctx = canvas.getContext('2d');
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                container.appendChild(canvas);
+                let currentPage = 1;
+                $('pdfPageInfo').textContent = `1 / ${pdf.numPages}`;
+                $('pdfPrevPage').onclick = () => { if (currentPage > 1) loadPage(currentPage - 1); };
+                $('pdfNextPage').onclick = () => { if (currentPage < pdf.numPages) loadPage(currentPage + 1); };
+                const loadPage = async (num) => {
+                    currentPage = num;
+                    const p = await pdf.getPage(num);
+                    const v = p.getViewport({ scale: 1.0 });
+                    canvas.width = v.width;
+                    canvas.height = v.height;
+                    await p.render({ canvasContext: ctx, viewport: v }).promise;
+                    $('pdfPageInfo').textContent = `${num} / ${pdf.numPages}`;
+                };
+            } catch (e) {
+                container.innerHTML = `<div class="text-slate-400"><i class="fas fa-exclamation-triangle"></i> Could not load preview.</div>`;
+            }
+        }
+
+        // ===== PREVIEW ZOOM / PAN =====
+        let zoomLevel = 1;
+        $('previewZoomIn').addEventListener('click', () => { zoomLevel = Math.min(3, zoomLevel + 0.25);
+            updatePreviewTransform(); });
+        $('previewZoomOut').addEventListener('click', () => { zoomLevel = Math.max(0.25, zoomLevel - 0.25);
+            updatePreviewTransform(); });
+        $('previewResetZoom').addEventListener('click', () => { zoomLevel = 1;
+            state.preview.panX = 0;
+            state.preview.panY = 0;
+            updatePreviewTransform(); });
+
+        function updatePreviewTransform() {
+            $('previewZoomLevel').textContent = Math.round(zoomLevel * 100) + '%';
+            $('previewWrapper').style.transform =
+                `scale(${zoomLevel}) translate(${state.preview.panX}px, ${state.preview.panY}px)`;
+        }
+        $('previewContent').addEventListener('wheel', (e) => {
+            if (previewModal.classList.contains('hidden')) return;
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            zoomLevel = Math.min(3, Math.max(0.25, zoomLevel + delta));
+            updatePreviewTransform();
+        }, { passive: false });
+        let isPanning = false,
+            startX, startY, startPanX, startPanY;
+        $('previewContent').addEventListener('mousedown', (e) => {
+            if (e.target.closest('#previewControls') || e.target.closest('button')) return;
+            isPanning = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startPanX = state.preview.panX;
+            startPanY = state.preview.panY;
+            $('previewContent').style.cursor = 'grabbing';
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (!isPanning) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            state.preview.panX = startPanX + dx / zoomLevel;
+            state.preview.panY = startPanY + dy / zoomLevel;
+            updatePreviewTransform();
+        });
+        document.addEventListener('mouseup', () => {
+            isPanning = false;
+            $('previewContent').style.cursor = 'default';
+        });
+        $('previewClose').onclick = () => previewModal.classList.add('hidden');
+        previewModal.addEventListener('click', (e) => { if (e.target === previewModal) previewModal.classList.add('hidden'); });
+
+        // ===== PROCESSING MODAL =====
+        function startProcessing(title, totalSteps = 1) {
+            processingModal.classList.remove('hidden');
+            $('processingIcon').innerHTML = '<i class="fas fa-circle-notch text-xl animate-spin"></i>';
+            $('processingTitle').textContent = title;
+            $('processingFile').textContent = `0 / ${totalSteps}`;
+            $('processingStatus').textContent = 'Initializing...';
+            $('processingProgressFill').style.width = '0%';
+            $('processingProgressText').textContent = '0%';
+            $('processingCancel').classList.remove('hidden');
+            $('processingRetry').classList.add('hidden');
+            $('processingDone').classList.add('hidden');
+        }
+
+        function updateProcessing(step, total, status = 'Processing...', currentFile = '') {
+            const progress = Math.min(100, Math.round((step / (total || 1)) * 100));
+            $('processingProgressFill').style.width = progress + '%';
+            $('processingProgressText').textContent = progress + '%';
+            $('processingFile').textContent = currentFile || `${step} / ${total || 1}`;
+            $('processingStatus').textContent = status;
+        }
+
+        function finishProcessing(error = false) {
+            if (error) {
+                $('processingStatus').textContent = 'Failed';
+                $('processingIcon').innerHTML = '<i class="fas fa-times-circle text-3xl text-rose-500"></i>';
+                $('processingRetry').classList.remove('hidden');
+            } else {
+                $('processingStatus').textContent = 'Completed!';
+                $('processingIcon').innerHTML = '<i class="fas fa-check-circle text-3xl text-emerald-500"></i>';
+                $('processingDone').classList.remove('hidden');
+                setTimeout(() => { processingModal.classList.add('hidden'); }, 2000);
+            }
+            $('processingCancel').classList.add('hidden');
+        }
+
+        $('processingCancel').addEventListener('click', () => { showToast('Process cancelled.', 'warning');
+            finishProcessing(true); });
+        $('processingRetry').addEventListener('click', () => { showToast('Retry clicked - feature coming soon.', 'info');
+            finishProcessing(); });
+        $('processingDone').addEventListener('click', () => { processingModal.classList.add('hidden'); });
+
+        // ===== DOWNLOAD HELPER =====
+        function downloadBlob(data, filename, mime) {
+            const blob = new Blob([data], { type: mime });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+        }
+
+        // ===== UPLOAD HANDLERS =====
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault();
+            dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                const target = state.activeTab === 'convert' ? 'convert' : 'auto';
+                handleFiles(e.dataTransfer.files, target);
+            }
+        });
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                const target = state.activeTab === 'convert' ? 'convert' : 'auto';
+                handleFiles(e.target.files, target);
+                e.target.value = '';
+            }
+        });
+
+        async function handleFiles(files, target = 'auto') {
+            const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+            const validFiles = [];
+            for (const file of files) {
+                if (file.size > MAX_FILE_SIZE) {
+                    showToast(`File too large (max 50 MB): ${file.name}`, 'error');
+                    continue;
+                }
+                validFiles.push(file);
+            }
+            files = validFiles;
+            if (!files.length) return;
+
+            if (target === 'convert' || (target === 'auto' && state.activeTab === 'convert')) {
+                await addToConversion(files);
+                return;
+            }
+            const imageFiles = [],
+                pdfFiles = [],
+                otherFiles = [];
+            for (const file of files) {
+                const ext = getFileExtension(file.name);
+                const mime = getMimeType(ext);
+                if (mime.startsWith('image/')) imageFiles.push(file);
+                else if (mime === 'application/pdf') pdfFiles.push(file);
+                else if (isOfficeType(mime)) otherFiles.push(file);
+                else showToast(`Skipping unsupported: ${file.name}`, 'warning');
+            }
+            if (imageFiles.length) await addImages(imageFiles);
+            if (pdfFiles.length) await addPdfs(pdfFiles);
+            if (otherFiles.length) await addToConversion(otherFiles);
+            if (!imageFiles.length && !pdfFiles.length && !otherFiles.length) showToast('Unsupported file type.', 'error');
+            renderAll();
+        }
+
+        async function addImages(files) {
+            for (const file of files) {
+                const id = generateId(),
+                    thumbnail = urlRegistry.create(file);
+                let w = 0,
+                    h = 0;
+                try {
+                    const img = new Image();
+                    await new Promise((res, rej) => {
+                        img.onload = () => { w = img.naturalWidth;
+                            h = img.naturalHeight;
+                            res(); };
+                        img.onerror = rej;
+                        img.src = thumbnail;
+                    });
+                } catch (e) { /* ignore */ }
+                state.images.push({
+                    id,
+                    file,
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                    thumbnail,
+                    width: w,
+                    height: h,
+                    status: 'ready'
+                });
+            }
+            showToast(`Added ${files.length} image(s)`, 'success');
+        }
+
+        async function addPdfs(files) {
+            for (const file of files) {
+                const id = generateId();
+                let pages = 0,
+                    thumbnail = null;
+                try {
+                    const PDFLib = await loadLibrary('PDFLib', 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+                    const pdfjsLib = await loadLibrary('pdfjsLib',
+                        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+                    const buf = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+                    pages = pdf.numPages;
+                    const page = await pdf.getPage(1);
+                    const viewport = page.getViewport({ scale: 0.5 });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    const ctx = canvas.getContext('2d');
+                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    thumbnail = canvas.toDataURL('image/png');
+                } catch (e) {
+                    showToast(`Failed to parse PDF: ${file.name}`, 'error');
+                    thumbnail = null;
+                    pages = 0;
+                }
+                state.pdfs.push({
+                    id,
+                    file,
+                    name: file.name,
+                    size: file.size,
+                    type: 'application/pdf',
+                    pages,
+                    thumbnail,
+                    status: 'ready'
+                });
+            }
+            showToast(`Added ${files.length} PDF(s)`, 'success');
+        }
+
+        // ===== SINGLE-FILE CONVERSION =====
+        // Convert one conversion-list item to its chosen format and download it directly.
+        async function convertSingleItem(id) {
+            const item = state.conversionFiles.find(f => f.id === id);
+            if (!item) return;
+            const targetFormat = item.outputFormat;
+            if (!targetFormat) { showToast('Choose an output format first.', 'error'); return; }
+            startProcessing(`Converting ${item.name}…`, 1);
+            try {
+                const result = await produceConvertedBlob(item, targetFormat);
+                if (result && result.multi) {
+                    const JSZipLib = await ensureJSZip();
+                    const zip = new JSZipLib();
+                    const pad = String(result.blobs.length).length;
+                    result.blobs.forEach((b, i) => {
+                        zip.file(`${result.baseName}_page${String(i + 1).padStart(pad, '0')}.${result.ext}`, b);
+                    });
+                    const zipBlob = await zip.generateAsync({ type: 'blob' });
+                    downloadBlob(zipBlob, `${result.baseName}_${result.ext}_pages.zip`, 'application/zip');
+                    updateProcessing(1, 1, 'Done', item.name);
+                    showToast(`Converted ${item.name} → ${result.blobs.length} ${result.ext.toUpperCase()} pages (zip)`, 'success');
+                    finishProcessing();
+                    return;
+                }
+                const ext = formatToExt(targetFormat);
+                const name = item.name.replace(/\.[^.]+$/, '') + '.' + ext;
+                downloadBlob(result, name, targetFormat);
+                updateProcessing(1, 1, 'Done', item.name);
+                showToast(`Converted ${item.name} → ${ext.toUpperCase()}`, 'success');
+                finishProcessing();
+            } catch (e) {
+                showToast(`Failed to convert ${item.name}: ${e.message}`, 'error');
+                finishProcessing(true);
+            }
+        }
+
+        // Shared producer used by single + bulk convert.
+        // Returns a single Blob, OR {multi:true, blobs:[...], baseName} for multi-page PDF→image.
+        async function produceConvertedBlob(item, targetFormat) {
+            const quality = (item.quality || state.settings.quality) / 100;
+            if (targetFormat === 'application/pdf') return await convertToPdf(item);
+            if (['image/jpeg','image/png','image/webp','image/bmp','image/gif'].includes(targetFormat)) {
+                if (item.type === 'application/pdf') {
+                    // Render every page; one image per page.
+                    const blobs = await pdfToImages(item, targetFormat, quality);
+                    if (blobs.length === 1) return blobs[0];
+                    return { multi: true, blobs, baseName: item.name.replace(/\.[^.]+$/, ''), ext: formatToExt(targetFormat) };
+                }
+                return await convertToImage(item, targetFormat, quality);
+            }
+            if (targetFormat.includes('wordprocessingml')) return await convertToWord(item);
+            if (targetFormat.includes('spreadsheetml')) return await convertToExcel(item);
+            if (targetFormat.includes('presentationml')) return await convertToPpt(item);
+            if (targetFormat === 'text/plain') {
+                if (item.type === 'application/pdf') return await pdfToText(item);
+                return new Blob([await item.file.text()], { type: 'text/plain' });
+            }
+            throw new Error('Unsupported target format');
+        }
+
+        // Render ALL pages of a PDF to image blobs (one per page).
+        async function pdfToImages(item, format, quality) {
+            const pdf = await openPdfDoc(item.file);
+            const blobs = [];
+            for (let p = 1; p <= pdf.numPages; p++) {
+                const page = await pdf.getPage(p);
+                const viewport = page.getViewport({ scale: 2 });
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                const blob = await new Promise(res => canvas.toBlob(res, format, quality));
+                if (!blob) throw new Error('Canvas toBlob failed on page ' + p);
+                blobs.push(blob);
+                if (typeof updateProcessing === 'function') updateProcessing(p, pdf.numPages, `Rendering page ${p}/${pdf.numPages}`, item.name);
+            }
+            return blobs;
+        }
+
+        // Render PDF first page to an image blob.
+        // Load a pdf.js document robustly: copy the buffer (pdf.js detaches it) and
+        // fall back to no-worker mode if the worker script can't be fetched.
+        async function openPdfDoc(file) {
+            const pdfjsLib = await loadLibrary('pdfjsLib', 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+            try {
+                if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                }
+            } catch (e) {}
+            const src = await file.arrayBuffer();
+            const data = src.slice(0); // copy so the original isn't detached on reuse
+            try {
+                return await pdfjsLib.getDocument({ data }).promise;
+            } catch (err) {
+                // worker may have failed — retry with worker disabled
+                const data2 = src.slice(0);
+                return await pdfjsLib.getDocument({ data: data2, disableWorker: true }).promise;
+            }
+        }
+
+        async function pdfPageToImage(item, format, quality) {
+            const pdf = await openPdfDoc(item.file);
+            const page = await pdf.getPage(1);
+            const viewport = page.getViewport({ scale: 2 });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            const blob = await new Promise(res => canvas.toBlob(res, format, quality));
+            if (!blob) throw new Error('Canvas toBlob failed');
+            return blob;
+        }
+
+        async function pdfToText(item) {
+            const pdf = await openPdfDoc(item.file);
+            let out = '';
+            for (let p = 1; p <= pdf.numPages; p++) {
+                const page = await pdf.getPage(p);
+                const content = await page.getTextContent();
+                out += content.items.map(i => i.str).join(' ') + '\n\n';
+            }
+            return new Blob([out], { type: 'text/plain' });
+        }
+
+        function formatToExt(mime) {
+            const map = {
+                'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png',
+                'image/webp': 'webp', 'image/bmp': 'bmp', 'image/gif': 'gif',
+                'image/tiff': 'tiff', 'image/svg+xml': 'svg', 'text/plain': 'txt',
+            };
+            if (map[mime]) return map[mime];
+            if (mime.includes('wordprocessingml')) return 'docx';
+            if (mime.includes('spreadsheetml')) return 'xlsx';
+            if (mime.includes('presentationml')) return 'pptx';
+            return (mime.split('/')[1] || 'bin').replace(/\+.*/, '');
+        }
+
+        // ===== LIVE SIZE ESTIMATION (reacts to the quality slider) =====
+        // For raster images we actually re-encode at the chosen quality to get a true
+        // byte count. Cached per (id|format|quality) so the slider stays responsive.
+        const sizeEstimateCache = new Map();
+        let estimateRunToken = 0;
+
+        function estimateKey(item, quality) {
+            return `${item.id}|${item.outputFormat}|${Math.round(quality)}`;
+        }
+
+        async function estimateOutputSize(item) {
+            const quality = (item.quality || state.settings.quality);
+            const key = estimateKey(item, quality);
+            if (sizeEstimateCache.has(key)) return sizeEstimateCache.get(key);
+
+            let bytes = null;
+            const fmt = item.outputFormat;
+            const isImgOut = ['image/jpeg','image/png','image/webp','image/bmp','image/gif'].includes(fmt);
+            try {
+                if (item.type === 'application/pdf' && isImgOut) {
+                    // estimate = first page rendered × page count (avoids rendering every page on each tick)
+                    const pdf = await openPdfDoc(item.file);
+                    const n = pdf.numPages;
+                    const page = await pdf.getPage(1);
+                    const viewport = page.getViewport({ scale: 2 });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width; canvas.height = viewport.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    const q = ['image/jpeg','image/webp'].includes(fmt) ? quality / 100 : 1;
+                    const blob = await new Promise(res => canvas.toBlob(res, fmt, q));
+                    bytes = blob ? blob.size * n : null;
+                } else if (['image/jpeg','image/webp'].includes(fmt) && isImageType(item.type)) {
+                    const blob = await convertToImage(item, fmt, quality / 100);
+                    bytes = blob.size;
+                } else if (['image/png','image/bmp','image/gif'].includes(fmt) && isImageType(item.type)) {
+                    const blob = await convertToImage(item, fmt, 1);
+                    bytes = blob.size;
+                } else {
+                    const blob = await produceConvertedBlob(item, fmt);
+                    bytes = (blob && blob.size != null) ? blob.size : null;
+                }
+            } catch (e) {
+                bytes = null;
+            }
+            sizeEstimateCache.set(key, bytes);
+            return bytes;
+        }
+
+        // Recompute the little "→ size" readouts in every conversion row.
+        async function refreshSizeEstimates() {
+            const token = ++estimateRunToken;
+            const rows = document.querySelectorAll('.conv-row');
+            for (const row of rows) {
+                const id = parseInt(row.dataset.id);
+                const item = state.conversionFiles.find(f => f.id === id);
+                const out = row.querySelector('.est-size');
+                if (!item || !out) continue;
+                out.textContent = '…';
+                const bytes = await estimateOutputSize(item);
+                if (token !== estimateRunToken) return; // a newer run superseded us
+                if (bytes == null) { out.textContent = ''; continue; }
+                const delta = bytes - item.size;
+                const pct = item.size ? Math.round((delta / item.size) * 100) : 0;
+                const arrow = delta < 0 ? '↓' : (delta > 0 ? '↑' : '');
+                out.innerHTML = `→ <span class="est-bytes">${formatBytes(bytes)}</span>` +
+                    (pct !== 0 ? ` <span class="est-delta ${delta<0?'down':'up'}">${arrow}${Math.abs(pct)}%</span>` : '');
+            }
+        }
+
+        let estimateDebounce = null;
+        function scheduleEstimateRefresh() {
+            clearTimeout(estimateDebounce);
+            estimateDebounce = setTimeout(refreshSizeEstimates, 220);
+        }
+
+        // Re-estimate a single row's output size live as its slider moves.
+        const rowEstimateTimers = {};
+        function scheduleRowEstimate(id) {
+            clearTimeout(rowEstimateTimers[id]);
+            rowEstimateTimers[id] = setTimeout(() => refreshOneRowEstimate(id), 180);
+        }
+        async function refreshOneRowEstimate(id) {
+            const item = state.conversionFiles.find(f => f.id === id);
+            const row = document.querySelector(`.conv-row[data-id="${id}"]`);
+            if (!item || !row) return;
+            const out = row.querySelector('.est-size');
+            if (!out) return;
+            out.textContent = '…';
+            const bytes = await estimateOutputSize(item);
+            if (bytes == null) { out.textContent = ''; return; }
+            const delta = bytes - item.size;
+            const pct = item.size ? Math.round((delta / item.size) * 100) : 0;
+            const arrow = delta < 0 ? '↓' : (delta > 0 ? '↑' : '');
+            out.innerHTML = `→ <span class="est-bytes">${formatBytes(bytes)}</span>` +
+                (pct !== 0 ? ` <span class="est-delta ${delta<0?'down':'up'}">${arrow}${Math.abs(pct)}%</span>` : '');
+        }
+
+        // ===== BULK CONVERSION =====
+        bulkConvertBtn.addEventListener('click', async () => {
+            const items = state.conversionFiles;
+            const targetFormat = state.settings.bulkFormat;
+            if (!items.length || !targetFormat) { showToast('No files or format selected.', 'error'); return; }
+
+            startProcessing(`Converting ${items.length} file(s) to ${targetFormat}...`, items.length);
+            let successCount = 0;
+            let fileEntries = 0;
+            const JSZipLib = await ensureJSZip(); const zip = new JSZipLib();
+
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                try {
+                    const result = await produceConvertedBlob(item, targetFormat);
+                    const base = item.name.replace(/\.[^.]+$/, '');
+                    if (result && result.multi) {
+                        const pad = String(result.blobs.length).length;
+                        result.blobs.forEach((b, p) => {
+                            zip.file(`${base}_page${String(p + 1).padStart(pad, '0')}.${result.ext}`, b);
+                            fileEntries++;
+                        });
+                    } else {
+                        zip.file(`${base}.${formatToExt(targetFormat)}`, result);
+                        fileEntries++;
+                    }
+                    successCount++;
+                } catch (e) {
+                    showToast(`Failed to convert ${item.name}: ${e.message}`, 'error');
+                }
+                updateProcessing(i + 1, items.length, `Converted ${i+1}/${items.length}`, item.name);
+            }
+
+            if (successCount > 0) {
+                if (fileEntries === 1) {
+                    const onlyName = Object.keys(zip.files)[0];
+                    const blob = await zip.file(onlyName).async('blob');
+                    downloadBlob(blob, onlyName, targetFormat);
+                } else {
+                    const zipBlob = await zip.generateAsync({ type: 'blob' });
+                    downloadBlob(zipBlob, 'converted_files.zip', 'application/zip');
+                }
+                showToast(`Converted ${successCount} file(s) successfully!`, 'success');
+            } else {
+                showToast('No files were converted.', 'error');
+            }
+            finishProcessing();
+            if (state.settings.autoDelete) { state.conversionFiles = [];
+                renderAll(); }
+        });
+
+        // ===== CONVERSION ENGINE (Lazy Loaded) =====
+        async function convertToPdf(item) {
+            const PDFLib = await loadLibrary('PDFLib', 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+            const mime = item.type;
+            const pdfDoc = await PDFLib.PDFDocument.create();
+            if (isImageType(mime)) {
+                const buf = await item.file.arrayBuffer();
+                let image;
+                if (mime === 'image/jpeg') image = await pdfDoc.embedJpg(buf);
+                else if (mime === 'image/png') image = await pdfDoc.embedPng(buf);
+                else {
+                    const img = await loadImage(item.file);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+                    const pngBytes = await pngBlob.arrayBuffer();
+                    image = await pdfDoc.embedPng(pngBytes);
+                }
+                const page = pdfDoc.addPage([image.width, image.height]);
+                page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+            } else if (mime === 'application/pdf') {
+                const buf = await item.file.arrayBuffer();
+                const srcDoc = await PDFLib.PDFDocument.load(buf);
+                const pages = await pdfDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+                pages.forEach(p => pdfDoc.addPage(p));
+            } else if (mime.includes('wordprocessingml')) {
+                const mammoth = await loadLibrary('mammoth',
+                    'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
+                const arrayBuffer = await item.file.arrayBuffer();
+                const result = await mammoth.extractRawText({ arrayBuffer });
+                const text = result.value || 'No text extracted.';
+                const page = pdfDoc.addPage([500, 800]);
+                const font = await pdfDoc.embedFont('Helvetica');
+                const lines = text.split('\n');
+                let y = 750;
+                for (const line of lines) {
+                    if (y < 50) break;
+                    page.drawText(line, { x: 30, y, font, size: 12, color: { r: 0, g: 0, b: 0 } });
+                    y -= 18;
+                }
+            } else if (mime.includes('spreadsheetml')) {
+                const XLSX = await loadLibrary('XLSX',
+                    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+                const arrayBuffer = await item.file.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                const page = pdfDoc.addPage([600, 800]);
+                const font = await pdfDoc.embedFont('Helvetica');
+                let y = 750;
+                for (const row of data) {
+                    if (y < 30) break;
+                    let x = 30;
+                    for (const cell of row) {
+                        page.drawText(String(cell || ''), { x, y, font, size: 10, color: { r: 0, g: 0, b: 0 } });
+                        x += 100;
+                    }
+                    y -= 20;
+                }
+            } else if (mime.includes('presentationml')) {
+                const pptx2json = await loadLibrary('pptx2json',
+                    'https://cdnjs.cloudflare.com/ajax/libs/pptx2json/1.0.5/pptx2json.min.js');
+                const arrayBuffer = await item.file.arrayBuffer();
+                const pptx = await pptx2json(arrayBuffer);
+                let text = '';
+                if (pptx.slides) {
+                    for (const slide of pptx.slides) {
+                        if (slide.shapes) {
+                            for (const shape of slide.shapes) {
+                                if (shape.text) text += shape.text + '\n';
+                            }
+                        }
+                    }
+                }
+                const page = pdfDoc.addPage([500, 800]);
+                const font = await pdfDoc.embedFont('Helvetica');
+                const lines = text.split('\n');
+                let y = 750;
+                for (const line of lines) {
+                    if (y < 50) break;
+                    page.drawText(line, { x: 30, y, font, size: 12, color: { r: 0, g: 0, b: 0 } });
+                    y -= 18;
+                }
+            } else if (mime === 'text/html') {
+                const html2canvas = await loadLibrary('html2canvas',
+                    'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+                const htmlContent = await item.file.text();
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'absolute';
+                iframe.style.width = '800px';
+                iframe.style.height = '600px';
+                iframe.style.top = '-9999px';
+                document.body.appendChild(iframe);
+                iframe.contentDocument.write(htmlContent);
+                iframe.contentDocument.close();
+                await new Promise(res => setTimeout(res, 1000));
+                const canvas = await html2canvas(iframe.contentDocument.body);
+                document.body.removeChild(iframe);
+                const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+                const pngBytes = await pngBlob.arrayBuffer();
+                const image = await pdfDoc.embedPng(pngBytes);
+                const page = pdfDoc.addPage([image.width, image.height]);
+                page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+            } else {
+                throw new Error('Unsupported input type for PDF conversion');
+            }
+            const pdfBytes = await pdfDoc.save();
+            return new Blob([pdfBytes], { type: 'application/pdf' });
+        }
+
+        async function convertToImage(item, format, quality) {
+            const img = await loadImage(item.file);
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const blob = await new Promise(res => canvas.toBlob(res, format, quality));
+            if (!blob) throw new Error('Canvas toBlob failed');
+            return blob;
+        }
+
+        async function convertToWord(item) {
+            const docxLib = await loadLibrary('docx', 'https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.2/docx.min.js');
+            const { Document, Packer, Paragraph, TextRun } = docxLib;
+            let text = '';
+            const mime = item.type;
+            if (mime === 'application/pdf') {
+                const pdfjsLib = await loadLibrary('pdfjsLib',
+                    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+                const buf = await item.file.arrayBuffer();
+                const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+                let fullText = '';
+                for (let i = 1; i <= doc.numPages; i++) {
+                    const page = await doc.getPage(i);
+                    const content = await page.getTextContent();
+                    const strings = content.items.map(item => item.str);
+                    fullText += strings.join(' ') + '\n\n';
+                }
+                text = fullText;
+            } else if (isImageType(mime)) {
+                text = 'Image file: ' + item.name + '\n(No text content)';
+            } else if (mime.includes('wordprocessingml')) {
+                const mammoth = await loadLibrary('mammoth',
+                    'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
+                const arrayBuffer = await item.file.arrayBuffer();
+                const result = await mammoth.extractRawText({ arrayBuffer });
+                text = result.value || 'No text extracted.';
+            } else if (mime.includes('spreadsheetml') || mime.includes('presentationml') || mime === 'text/html') {
+                const pdfBlob = await convertToPdf(item);
+                const pdfBuf = await pdfBlob.arrayBuffer();
+                const pdfjsLib = await loadLibrary('pdfjsLib',
+                    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+                const doc = await pdfjsLib.getDocument({ data: pdfBuf }).promise;
+                let fullText = '';
+                for (let i = 1; i <= doc.numPages; i++) {
+                    const page = await doc.getPage(i);
+                    const content = await page.getTextContent();
+                    const strings = content.items.map(item => item.str);
+                    fullText += strings.join(' ') + '\n\n';
+                }
+                text = fullText;
+            } else {
+                text = 'Unsupported input for Word conversion.';
+            }
+            const doc = new Document({
+                sections: [{
+                    properties: {},
+                    children: text.split('\n').map(line => new Paragraph({ children: [new TextRun(line)] }))
+                }]
+            });
+            const blob = await Packer.toBlob(doc);
+            return blob;
+        }
+
+        async function convertToExcel(item) {
+            const XLSX = await loadLibrary('XLSX',
+                'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+            const { utils, write } = XLSX;
+            let data = [];
+            const mime = item.type;
+            if (mime === 'application/pdf') {
+                const pdfjsLib = await loadLibrary('pdfjsLib',
+                    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+                const buf = await item.file.arrayBuffer();
+                const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+                let fullText = '';
+                for (let i = 1; i <= doc.numPages; i++) {
+                    const page = await doc.getPage(i);
+                    const content = await page.getTextContent();
+                    const strings = content.items.map(item => item.str);
+                    fullText += strings.join(' ') + '\n';
+                }
+                const lines = fullText.split('\n');
+                data = lines.map(line => [line]);
+            } else if (isImageType(mime)) {
+                data = [
+                    ['Image file:', item.name, ' (No data)']
+                ];
+            } else if (mime.includes('spreadsheetml')) {
+                const arrayBuffer = await item.file.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                data = json;
+            } else if (mime.includes('wordprocessingml') || mime.includes('presentationml') || mime === 'text/html') {
+                const pdfBlob = await convertToPdf(item);
+                const pdfBuf = await pdfBlob.arrayBuffer();
+                const pdfjsLib = await loadLibrary('pdfjsLib',
+                    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+                const doc = await pdfjsLib.getDocument({ data: pdfBuf }).promise;
+                let fullText = '';
+                for (let i = 1; i <= doc.numPages; i++) {
+                    const page = await doc.getPage(i);
+                    const content = await page.getTextContent();
+                    const strings = content.items.map(item => item.str);
+                    fullText += strings.join(' ') + '\n';
+                }
+                const lines = fullText.split('\n');
+                data = lines.map(line => [line]);
+            } else {
+                data = [
+                    ['Unsupported input for Excel conversion']
+                ];
+            }
+            const wb = utils.book_new();
+            const ws = utils.aoa_to_sheet(data);
+            utils.book_append_sheet(wb, ws, 'Sheet1');
+            const wbout = write(wb, { bookType: 'xlsx', type: 'array' });
+            return new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        }
+
+        async function convertToPpt(item) {
+            showToast('PPTX conversion is experimental. Using PDF as fallback.', 'warning');
+            return await convertToPdf(item);
+        }
+
+        // ===== HELPER: LOAD IMAGE =====
+        function loadImage(file) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => { URL.revokeObjectURL(url);
+                    resolve(img); };
+                img.onerror = () => { URL.revokeObjectURL(url);
+                    reject(new Error('Failed to decode image.')); };
+                img.src = url;
+            });
+        }
+
+        // ===== CONVERT HINTS (replaces old converter grid) =====
+        function updateConvertHints() {
+            const hints = document.getElementById("convertHints");
+            const bar = document.getElementById("bulkBar");
+            if (!hints) return;
+            const has = state.conversionFiles.length > 0;
+            hints.classList.toggle("hidden", has);
+            if (bar) bar.classList.toggle("hidden", !has);
+        }
+
+        // Hint chips open the file picker scoped to the relevant input type.
+        document.querySelectorAll(".convert-chip").forEach(chip => {
+            chip.addEventListener("click", () => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.multiple = true;
+                input.accept = chip.dataset.accept || "";
+                input.onchange = (e) => { if (e.target.files.length) handleFiles(e.target.files, "convert"); };
+                input.click();
+            });
+        });
+
+        // ===== TOOLBAR ACTIONS =====
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.action;
+                if (btn.disabled) return;
+                if (action === 'compress' || action === 'compressPdf') {
+                    compressSelected();
+                } else if (action === 'convert') {
+                    addSelectedToConvert();
+                } else if (action === 'mergeImages') {
+                    mergeSelectedImages();
+                } else if (action === 'exportZip') {
+                    exportSelectedAsZip('images');
+                } else if (action === 'mergePdf') {
+                    mergeSelectedPdfs();
+                } else if (action === 'splitPdf') {
+                    splitSelectedPdf();
+                } else if (action === 'protectPdf') {
+                    showToast('PDF Protection coming soon', 'info');
+                } else if (action === 'extractPdf') {
+                    showToast('Extract pages coming soon', 'info');
+                } else if (action === 'convertPdf') {
+                    addSelectedToConvert();
+                } else if (action === 'exportPdfZip') {
+                    exportSelectedAsZip('pdfs');
+                } else {
+                    showToast(`Action "${action}" triggered`, 'info');
+                }
+            });
+        });
+
+        // ===== COMPRESS SELECTED =====
+        async function compressSelected() {
+            const quality = parseInt(globalQualitySlider.value) / 100;
+            const selected = [...state.selectedIds];
+            if (!selected.length) { showToast('Select files to compress.', 'error'); return; }
+            const images = state.images.filter(i => selected.includes(i.id));
+            const pdfs = state.pdfs.filter(p => selected.includes(p.id));
+            if (!images.length && !pdfs.length) { showToast('No compressible files selected.', 'error'); return; }
+
+            startProcessing(`Compressing ${images.length + pdfs.length} file(s)...`, images.length + pdfs.length);
+            const JSZipLib = await ensureJSZip(); const zip = new JSZipLib();
+            let count = 0;
+
+            for (const img of images) {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const imageObj = new Image();
+                    await new Promise((resolve, reject) => {
+                        imageObj.onload = () => {
+                            canvas.width = imageObj.naturalWidth;
+                            canvas.height = imageObj.naturalHeight;
+                            ctx.drawImage(imageObj, 0, 0);
+                            resolve();
+                        };
+                        imageObj.onerror = reject;
+                        imageObj.src = URL.createObjectURL(img.file);
+                    });
+                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+                    zip.file(img.name.replace(/\.[^.]+$/, '.jpg'), blob);
+                } catch (e) { showToast(`Failed to compress ${img.name}`, 'error'); }
+                count++;
+                updateProcessing(count, images.length + pdfs.length);
+            }
+
+            for (const pdf of pdfs) {
+                try {
+                    const PDFLib = await loadLibrary('PDFLib',
+                    'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+                    const pdfjsLib = await loadLibrary('pdfjsLib',
+                        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+                    const buf = await pdf.file.arrayBuffer();
+                    const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+                    const compressedPdf = await PDFLib.PDFDocument.create();
+                    for (let i = 1; i <= doc.numPages; i++) {
+                        const page = await doc.getPage(i);
+                        const viewport = page.getViewport({ scale: 1.5 });
+                        const canvas = document.createElement('canvas');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        const ctx = canvas.getContext('2d');
+                        await page.render({ canvasContext: ctx, viewport }).promise;
+                        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+                        const imgBytes = await blob.arrayBuffer();
+                        const image = await compressedPdf.embedJpg(imgBytes);
+                        const newPage = compressedPdf.addPage([viewport.width, viewport.height]);
+                        newPage.drawImage(image, { x: 0, y: 0, width: viewport.width, height: viewport.height });
+                    }
+                    const compressedBytes = await compressedPdf.save();
+                    zip.file(pdf.name, compressedBytes);
+                } catch (e) { showToast(`Failed to compress ${pdf.name}`, 'error'); }
+                count++;
+                updateProcessing(count, images.length + pdfs.length);
+            }
+
+            if (Object.keys(zip.files).length > 0) {
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                downloadBlob(zipBlob, 'compressed_files.zip', 'application/zip');
+                showToast('Compression complete!', 'success');
+            } else {
+                showToast('No files compressed.', 'error');
+            }
+            finishProcessing();
+        }
+
+        // ===== MERGE IMAGES =====
+        async function mergeSelectedImages() {
+            const selected = state.images.filter(i => state.selectedIds.has(i.id));
+            if (selected.length < 2) { showToast('Select at least 2 images to merge.', 'error'); return; }
+            startProcessing('Merging images into PDF...', selected.length);
+            try {
+                const PDFLib = await loadLibrary('PDFLib',
+                'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+                const pdfDoc = await PDFLib.PDFDocument.create();
+                for (const img of selected) {
+                    const buf = await img.file.arrayBuffer();
+                    let image;
+                    if (img.type === 'image/jpeg') image = await pdfDoc.embedJpg(buf);
+                    else if (img.type === 'image/png') image = await pdfDoc.embedPng(buf);
+                    else {
+                        const imgObj = await loadImage(img.file);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = imgObj.width;
+                        canvas.height = imgObj.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(imgObj, 0, 0);
+                        const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+                        const pngBytes = await pngBlob.arrayBuffer();
+                        image = await pdfDoc.embedPng(pngBytes);
+                    }
+                    const page = pdfDoc.addPage([image.width, image.height]);
+                    page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+                    updateProcessing(selected.indexOf(img) + 1, selected.length);
+                }
+                const bytes = await pdfDoc.save();
+                downloadBlob(bytes, 'merged_images.pdf', 'application/pdf');
+                showToast('Images merged successfully!', 'success');
+                finishProcessing();
+            } catch (e) { showToast('Error merging: ' + e.message, 'error');
+                finishProcessing(true); }
+        }
+
+        // ===== MERGE PDFS =====
+        async function mergeSelectedPdfs() {
+            const selected = state.pdfs.filter(p => state.selectedIds.has(p.id));
+            if (selected.length < 2) { showToast('Select at least 2 PDFs to merge.', 'error'); return; }
+            startProcessing('Merging PDFs...', selected.length);
+            try {
+                const PDFLib = await loadLibrary('PDFLib',
+                'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+                const mergedPdf = await PDFLib.PDFDocument.create();
+                for (const pdf of selected) {
+                    const buf = await pdf.file.arrayBuffer();
+                    const doc = await PDFLib.PDFDocument.load(buf);
+                    const pages = await mergedPdf.copyPages(doc, doc.getPageIndices());
+                    pages.forEach(p => mergedPdf.addPage(p));
+                    updateProcessing(selected.indexOf(pdf) + 1, selected.length);
+                }
+                const bytes = await mergedPdf.save();
+                downloadBlob(bytes, 'merged.pdf', 'application/pdf');
+                showToast('PDFs merged!', 'success');
+                finishProcessing();
+            } catch (e) { showToast('Error: ' + e.message, 'error');
+                finishProcessing(true); }
+        }
+
+        // ===== EXPORT ZIP =====
+        async function exportSelectedAsZip(type) {
+            const items = type === 'images' ? state.images.filter(i => state.selectedIds.has(i.id)) : state.pdfs.filter(p =>
+                state.selectedIds.has(p.id));
+            if (!items.length) { showToast('Select files to export.', 'error'); return; }
+            startProcessing('Creating ZIP...', items.length);
+            const JSZipLib = await ensureJSZip(); const zip = new JSZipLib();
+            for (const item of items) {
+                zip.file(item.name, await item.file.arrayBuffer());
+                updateProcessing(items.indexOf(item) + 1, items.length);
+            }
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            downloadBlob(zipBlob, `${type}_export.zip`, 'application/zip');
+            showToast('ZIP created!', 'success');
+            finishProcessing();
+        }
+
+        async function splitSelectedPdf() {
+            showToast('Split PDF feature coming soon', 'info');
+        }
+
+        // ===== QUEUE =====
+        function renderQueue() {
+            const tasks = state.queue;
+            if (!tasks.length) {
+                queueList.innerHTML =
+                    `<div class="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 text-sm"><i class="fas fa-hourglass-half text-3xl mb-3"></i><p>No active tasks</p></div>`;
+                queueBadge.classList.add('hidden');
+                return;
+            }
+            queueBadge.classList.remove('hidden');
+            queueBadge.textContent = tasks.length;
+            queueList.innerHTML = '';
+            tasks.forEach(task => {
+                const div = document.createElement('div');
+                div.className = 'bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-200/60 dark:border-slate-700/60';
+                const statusColors = {
+                    waiting: 'bg-slate-200 dark:bg-slate-700',
+                    processing: 'bg-indigo-500 animate-pulse',
+                    completed: 'bg-emerald-500',
+                    failed: 'bg-rose-500'
+                };
+                div.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full ${statusColors[task.status] || 'bg-slate-300'}"></div>
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">${escapeHtml(task.action)}</span>
+                        </div>
+                        <span class="text-xs text-slate-400 dark:text-slate-500">${task.status}</span>
+                    </div>
+                    <p class="text-xs text-slate-400 dark:text-slate-500 truncate mt-1">${escapeHtml(task.message || '')}</p>
+                    <div class="w-full h-1 bg-slate-200 dark:bg-slate-700 rounded-full mt-2 overflow-hidden">
+                        <div class="h-full ${task.status === 'completed' ? 'bg-emerald-500' : task.status === 'failed' ? 'bg-rose-500' : 'bg-indigo-500'} transition-all" style="width: ${task.progress || 0}%;"></div>
+                    </div>
+                `;
+                queueList.appendChild(div);
+            });
+        }
+
+        $('queueToggle').onclick = () => { queueSidebar.classList.toggle('open');
+            queueOverlay.classList.toggle('hidden'); };
+        $('queueClose').onclick = () => { queueSidebar.classList.remove('open');
+            queueOverlay.classList.add('hidden'); };
+        queueOverlay.onclick = () => { queueSidebar.classList.remove('open');
+            queueOverlay.classList.add('hidden'); };
+        $('clearQueueBtn').onclick = () => {
+            state.queue = state.queue.filter(t => t.status === 'processing' || t.status === 'waiting');
+            renderQueue();
+            showToast('Cleared completed tasks', 'info');
+        };
+
+        // ===== SETTINGS =====
+        $('settingsToggle').onclick = () => settingsModal.classList.remove('hidden');
+        $('settingsClose').onclick = () => settingsModal.classList.add('hidden');
+        settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) settingsModal.classList.add('hidden'); });
+        document.querySelectorAll('.theme-opt').forEach(btn => {
+            btn.addEventListener('click', () => {
+                applyTheme(btn.dataset.theme);
+                document.querySelectorAll('.theme-opt').forEach(el => el.classList.remove('bg-white',
+                    'dark:bg-slate-700', 'shadow-sm'));
+                btn.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm');
+            });
+        });
+        $('defaultQuality').addEventListener('change', (e) => {
+            state.settings.quality = parseInt(e.target.value);
+            localStorage.setItem('studio-quality', e.target.value);
+            globalQualitySlider.value = e.target.value;
+            safeText(globalQualityDisplay, e.target.value + '%');
+            showToast(`Quality set to ${e.target.value}%`, 'info');
+        });
+        const autoDeleteToggle = $('autoDeleteToggle');
+        autoDeleteToggle.addEventListener('click', () => {
+            state.settings.autoDelete = !state.settings.autoDelete;
+            localStorage.setItem('studio-autoDelete', state.settings.autoDelete);
+            autoDeleteToggle.querySelector('span').classList.toggle('translate-x-5', state.settings.autoDelete);
+            autoDeleteToggle.classList.toggle('bg-indigo-500', state.settings.autoDelete);
+            autoDeleteToggle.classList.toggle('bg-slate-300', !state.settings.autoDelete);
+            showToast(state.settings.autoDelete ? 'Auto-delete enabled' : 'Auto-delete disabled', 'info');
+        });
+        if (state.settings.autoDelete) {
+            autoDeleteToggle.querySelector('span').classList.add('translate-x-5');
+            autoDeleteToggle.classList.add('bg-indigo-500');
+        }
+
+        // ===== SELECT ALL / CLEAR =====
+        $('selectAllBtn').addEventListener('click', () => {
+            state.images.forEach(i => state.selectedIds.add(i.id));
+            state.pdfs.forEach(p => state.selectedIds.add(p.id));
+            renderAll();
+        });
+        $('clearSelectedBtn').addEventListener('click', () => { state.selectedIds.clear();
+            renderAll(); });
+
+        // (tab switching removed — single unified grid)
+
+        // ===== SEARCH =====
+        searchInput.addEventListener('input', (e) => { state.searchQuery = e.target.value;
+            renderAll(); });
+
+        // ===== KEYBOARD SHORTCUTS =====
+        function isTypingContext() {
+            const tag = document.activeElement ? document.activeElement.tagName : '';
+            const editable = document.activeElement && document.activeElement.isContentEditable;
+            return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || editable;
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'a') {
+                if (isTypingContext()) return; // let browser handle select-all in inputs
+                e.preventDefault();
+                state.images.forEach(i => state.selectedIds.add(i.id));
+                state.pdfs.forEach(p => state.selectedIds.add(p.id));
+                renderAll();
+            }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (isTypingContext()) return; // never intercept text editing
+                if (state.selectedIds.size === 0) return;
+                if (!confirm(`Delete ${state.selectedIds.size} selected file(s)?`)) return;
+                const ids = new Set(state.selectedIds);
+                state.images = state.images.filter(i => !ids.has(i.id));
+                state.pdfs = state.pdfs.filter(p => !ids.has(p.id));
+                state.selectedIds.clear();
+                renderAll();
+                showToast('Selected files deleted.', 'info');
+            }
+            // Escape closes queue sidebar and format panel
+            if (e.key === 'Escape') {
+                if (!queueSidebar.classList.contains('open')) return;
+                queueSidebar.classList.remove('open');
+                queueOverlay.classList.add('hidden');
+            }
+        });
+
+        // ===== ADD TO CONVERSION =====
+        addToConvertBtn.addEventListener('click', () => {
+            fileInput.accept = 'image/*,.pdf,.docx,.xlsx,.pptx,.html,.htm';
+            const orig = fileInput.onchange;
+            fileInput.onchange = (e) => {
+                if (e.target.files.length) { handleFiles(e.target.files, 'convert');
+                    e.target.value = ''; }
+                fileInput.onchange = orig;
+            };
+            fileInput.click();
+        });
+
+        // ===== UPLOAD BUTTONS =====
+        $('uploadImagesBtn').onclick = () => { fileInput.accept = 'image/*'; fileInput.click(); };
+        $('uploadDocsBtn').onclick = () => { fileInput.accept = '.docx,.xlsx,.pptx,.html,.htm,.pdf'; fileInput.click(); };
+        // Compact hero buttons
+        const uploadImagesBtn2 = $('uploadImagesBtn2');
+        const uploadDocsBtn2 = $('uploadDocsBtn2');
+        if (uploadImagesBtn2) uploadImagesBtn2.onclick = () => { fileInput.accept = 'image/*'; fileInput.click(); };
+        if (uploadDocsBtn2) uploadDocsBtn2.onclick = () => { fileInput.accept = '.docx,.xlsx,.pptx,.html,.htm,.pdf'; fileInput.click(); };
+
+        // Compact drop zone
+        const compactDropZone = $('compactDropZone');
+        if (compactDropZone) {
+            compactDropZone.addEventListener('click', () => { fileInput.accept = 'image/*,.pdf,.docx,.xlsx,.pptx,.html,.htm,.svg,.tiff,.tif,.avif,.ico,.bmp'; fileInput.click(); });
+            compactDropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); compactDropZone.click(); } });
+            compactDropZone.addEventListener('dragover', (e) => { e.preventDefault(); compactDropZone.classList.add('dragover'); });
+            compactDropZone.addEventListener('dragleave', () => compactDropZone.classList.remove('dragover'));
+            compactDropZone.addEventListener('drop', (e) => { e.preventDefault(); compactDropZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files, 'auto'); });
+        }
+
+        // ===== QUICK START BUTTONS =====
+        $('quickStartImage').addEventListener('click', () => { fileInput.accept = 'image/*';
+            fileInput.click(); });
+        $('quickStartPdf').addEventListener('click', () => { fileInput.accept = '.pdf';
+            fileInput.click(); });
+        $('quickStartOffice').addEventListener('click', () => { fileInput.accept = '.docx,.xlsx,.pptx,.html,.htm';
+            fileInput.click(); });
+
+        // ===== MOBILE NAV =====
+        $('mobileUpload').onclick = () => fileInput.click();
+        $('mobileFiles').onclick = () => { const g = document.getElementById('fileGrid'); if (g) g.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+        $('mobileQueue').onclick = () => { queueSidebar.classList.toggle('open');
+            queueOverlay.classList.toggle('hidden'); };
+
+        // ===== INIT =====
+        applyTheme(state.theme);
+        globalQualitySlider.value = state.settings.quality;
+        safeText(globalQualityDisplay, state.settings.quality + '%');
+        updateFormatSelectorState();
+        renderAll();
+        showToast('Studio Pro ready — all processing is local, nothing leaves your device.', 'success', 4000);
+
+        // Clean up URLs when page unloads
+        window.addEventListener('beforeunload', () => {
+            urlRegistry.revokeAll();
+        });
+
+        console.log('Studio Pro initialized.');
+    </script>
+
+    <!-- ===== STATUS STRIP — wires the signature LED to live app state ===== -->
+    <script>
+        (function () {
+            const led = document.getElementById('statusLed');
+            const txt = document.getElementById('statusText');
+            const railHint = document.getElementById('railHint');
+            const processingModal = document.getElementById('processingModal');
+            const imgCount = document.getElementById('imgCount');
+            const pdfCount = document.getElementById('pdfCount');
+            const convCount = document.getElementById('convCount');
+            if (!led || !txt) return;
+
+            function fileTotal() {
+                const n = (el) => parseInt((el && el.textContent) || '0', 10) || 0;
+                return n(imgCount) + n(pdfCount) + n(convCount);
+            }
+            function render(busy) {
+                const total = fileTotal();
+                if (busy) {
+                    led.classList.add('busy');
+                    txt.textContent = 'local · processing…';
+                } else {
+                    led.classList.remove('busy');
+                    txt.textContent = total > 0
+                        ? `local · ${total} file${total === 1 ? '' : 's'}`
+                        : 'local · ready';
+                }
+                if (railHint) {
+                    const sel = document.getElementById('selectedCount');
+                    const selVisible = sel && !sel.classList.contains('hidden');
+                    railHint.textContent = selVisible ? sel.textContent.replace(' selected', ' selected') : (total > 0 ? 'select files' : 'no files');
+                }
+            }
+
+            // React to processing modal visibility (busy LED)
+            new MutationObserver(() => {
+                render(!processingModal.classList.contains('hidden'));
+            }).observe(processingModal, { attributes: true, attributeFilter: ['class'] });
+
+            // React to count badges changing (files added/removed)
+            [imgCount, pdfCount, convCount].forEach(el => {
+                if (el) new MutationObserver(() => render(!processingModal.classList.contains('hidden')))
+                    .observe(el, { childList: true, characterData: true, subtree: true });
+            });
+
+            render(false);
+        })();
+    </script>
+</body>
