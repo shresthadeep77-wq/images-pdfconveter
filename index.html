@@ -228,6 +228,17 @@
 
         /* ===== Quality slider ===== */
         input[type="range"].q-slider { accent-color: var(--signal); }
+        .q-box {
+            width: 46px; text-align: right; font-size: 0.72rem; font-weight: 600;
+            color: var(--signal); background: var(--surface); border: 1px solid var(--line);
+            border-radius: 6px; padding: 2px 6px; outline: none;
+            -moz-appearance: textfield;
+        }
+        .q-box::-webkit-outer-spin-button, .q-box::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .q-box:focus { border-color: var(--signal); }
+        .card-del.armed { background: var(--signal) !important; color: #fff !important; animation: pulseDel 0.3s ease; }
+        @keyframes pulseDel { from { transform: scale(0.85); } to { transform: scale(1); } }
+        #cropBox .crop-handle.se:hover { transform: scale(1.2); }
 
         /* ===== Modals & overlays ===== */
         .modal-overlay { background: rgba(26,24,22,0.55); backdrop-filter: blur(6px); }
@@ -526,14 +537,28 @@
                         <span class="status-strip" id="railHint" style="color: var(--muted);">select files</span>
                     </div>
                     <p class="status-strip mb-2" style="color: var(--muted);">tools activate for your selection</p>
-
-                    <!-- Quality control -->
-                    <div class="panel-2 rounded-xl p-3 mb-3">
-                        <div class="flex items-center justify-between mb-2">
-                            <label for="globalCompressionQuality" class="text-xs font-medium" style="color: var(--ink);">Output quality</label>
-                            <span id="globalQualityDisplay" class="mono text-xs font-semibold" style="color: var(--signal);">70%</span>
+                    <!-- Quality controls: separate for images and PDFs, with editable % box -->
+                    <div class="panel-2 rounded-xl p-3 mb-3 space-y-3">
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label for="globalCompressionQuality" class="text-xs font-medium flex items-center gap-1.5" style="color: var(--ink);"><i class="fas fa-image" style="color: var(--signal);" aria-hidden="true"></i> Image quality</label>
+                                <div class="flex items-center gap-1">
+                                    <input id="imgQualityBox" type="number" min="10" max="100" value="70" class="q-box mono" aria-label="Image quality percent">
+                                    <span class="mono text-xs" style="color: var(--muted);">%</span>
+                                </div>
+                            </div>
+                            <input type="range" id="globalCompressionQuality" min="10" max="100" value="70" class="q-slider w-full" aria-label="Image quality">
                         </div>
-                        <input type="range" id="globalCompressionQuality" min="10" max="100" value="70" class="q-slider w-full" aria-label="Output quality">
+                        <div style="border-top: 1px solid var(--line); padding-top: 12px;">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label for="pdfQualitySlider" class="text-xs font-medium flex items-center gap-1.5" style="color: var(--ink);"><i class="fas fa-file-pdf" style="color: var(--circuit);" aria-hidden="true"></i> PDF quality</label>
+                                <div class="flex items-center gap-1">
+                                    <input id="pdfQualityBox" type="number" min="10" max="100" value="70" class="q-box mono" aria-label="PDF quality percent">
+                                    <span class="mono text-xs" style="color: var(--muted);">%</span>
+                                </div>
+                            </div>
+                            <input type="range" id="pdfQualitySlider" min="10" max="100" value="70" class="q-slider w-full" style="accent-color: var(--circuit);" aria-label="PDF quality">
+                        </div>
                     </div>
 
                     <!-- Tool grids -->
@@ -544,6 +569,7 @@
                             <button data-action="compress" class="tool-btn" aria-label="Compress images"><i class="fas fa-compress" aria-hidden="true"></i> Compress</button>
                             <button data-action="convert" class="tool-btn" aria-label="Convert images"><i class="fas fa-exchange-alt" aria-hidden="true"></i> Convert</button>
                             <button data-action="rotate" class="tool-btn" aria-label="Rotate images"><i class="fas fa-rotate" aria-hidden="true"></i> Rotate</button>
+                            <button data-action="crop" class="tool-btn" aria-label="Crop image"><i class="fas fa-crop-simple" aria-hidden="true"></i> Crop</button>
                             <button data-action="mergeImages" class="tool-btn" aria-label="Merge images to PDF"><i class="fas fa-layer-group" aria-hidden="true"></i> Merge</button>
                         </div>
                         <div id="pdfTools" class="tool-group">
@@ -608,6 +634,26 @@
     </div>
 
     <!-- ===== PROCESSING MODAL ===== -->
+    <!-- ===== CROP MODAL ===== -->
+    <div id="cropModal" class="fixed inset-0 z-[75] flex items-center justify-center p-4 modal-overlay hidden">
+        <div class="panel scale-in" style="width: min(680px, 95vw); padding: 0; overflow: hidden;">
+            <div class="flex items-center justify-between p-4" style="border-bottom: 1px solid var(--line);">
+                <h2 class="font-display font-bold flex items-center gap-2" style="color: var(--ink);"><i class="fas fa-crop-simple" style="color: var(--signal);" aria-hidden="true"></i> Crop image</h2>
+                <button id="cropClose" class="icon-btn" aria-label="Close"><i class="fas fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div id="cropStage" style="position: relative; width: 100%; height: 60vh; max-height: 460px; background: var(--surface-2); overflow: hidden; touch-action: none;">
+                <img id="cropImage" alt="Crop target" style="position: absolute; user-select: none; pointer-events: none;">
+                <div id="cropBox" style="position: absolute; display: none; border: 2px solid var(--signal); box-shadow: 0 0 0 9999px rgba(26,24,22,0.45); cursor: move; box-sizing: border-box;">
+                    <span class="crop-handle se" style="position: absolute; right: -8px; bottom: -8px; width: 16px; height: 16px; background: var(--signal); border: 2px solid #fff; border-radius: 50%; cursor: nwse-resize;"></span>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 p-4" style="border-top: 1px solid var(--line); background: var(--surface-2);">
+                <button id="cropCancel" class="px-4 py-2 text-sm font-medium min-h-[44px]" style="color: var(--muted);">Cancel</button>
+                <button id="cropApply" class="px-5 py-2 text-sm font-semibold text-white rounded-xl min-h-[44px]" style="background: var(--signal);"><i class="fas fa-check mr-1" aria-hidden="true"></i> Crop &amp; download</button>
+            </div>
+        </div>
+    </div>
+
     <div id="processingModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 modal-overlay hidden">
         <div class="rounded-2xl shadow-2xl w-full max-w-md p-6 scale-in" style="background: var(--surface); border: 1px solid var(--line);">
             <div class="flex items-center gap-4 mb-4">
@@ -724,6 +770,8 @@
             searchQuery: '',
             settings: {
                 quality: parseInt(localStorage.getItem('studio-quality')) || 70,
+                imageQuality: parseInt(localStorage.getItem('studio-imgQuality')) || 70,
+                pdfQuality: parseInt(localStorage.getItem('studio-pdfQuality')) || 70,
                 autoDelete: localStorage.getItem('studio-autoDelete') === 'true',
                 bulkFormat: null,
             },
@@ -760,8 +808,7 @@
             bulkCount = $('bulkCount'),
             bulkConvertBtn = $('bulkConvertBtn'),
             addToConvertBtn = $('addToConvertBtn'),
-            globalQualitySlider = $('globalCompressionQuality'),
-            globalQualityDisplay = $('globalQualityDisplay');
+            globalQualitySlider = $('globalCompressionQuality');
 
         // ===== FORMAT SELECTOR REFS =====
         const formatTrigger = $('formatTrigger');
@@ -864,9 +911,14 @@
             formatDisplay.className = 'selected-label';
             bulkConvertBtn.disabled = false;
             bulkConvertBtn.textContent = `Convert ${label} →`;
+            // Apply this format to every row whose input can produce it, so the
+            // per-row dropdowns match the bulk choice (no PNG-vs-JPG confusion).
+            state.conversionFiles.forEach(item => {
+                const allowed = getOutputOptions(item.type).some(o => o.value === value);
+                if (allowed) item.outputFormat = value;
+            });
             closePanel();
-            renderFormats();
-            updateBulkBar();
+            renderAll();
         }
 
         const formatBackdrop = document.getElementById('formatBackdrop');
@@ -1001,13 +1053,29 @@
         });
 
         // ===== GLOBAL QUALITY =====
-        globalQualitySlider.addEventListener('input', () => {
-            const val = parseInt(globalQualitySlider.value);
-            safeText(globalQualityDisplay, val + '%');
-            state.settings.quality = val;
+        function setImageQuality(v) {
+            v = Math.max(10, Math.min(100, parseInt(v) || 70));
+            state.settings.imageQuality = v;
+            state.settings.quality = v; // keep legacy alias in sync (used by convert estimate)
+            localStorage.setItem('studio-imgQuality', v);
+            const sl = $('globalCompressionQuality'), bx = $('imgQualityBox');
+            if (sl && sl.value != v) sl.value = v;
+            if (bx && bx.value != v) bx.value = v;
             scheduleEstimateRefresh();
             scheduleCardEstimateRefresh();
-        });
+        }
+        function setPdfQuality(v) {
+            v = Math.max(10, Math.min(100, parseInt(v) || 70));
+            state.settings.pdfQuality = v;
+            localStorage.setItem('studio-pdfQuality', v);
+            const sl = $('pdfQualitySlider'), bx = $('pdfQualityBox');
+            if (sl && sl.value != v) sl.value = v;
+            if (bx && bx.value != v) bx.value = v;
+        }
+        globalQualitySlider.addEventListener('input', () => setImageQuality(globalQualitySlider.value));
+        $('imgQualityBox').addEventListener('input', (e) => setImageQuality(e.target.value));
+        $('pdfQualitySlider').addEventListener('input', (e) => setPdfQuality(e.target.value));
+        $('pdfQualityBox').addEventListener('input', (e) => setPdfQuality(e.target.value));
 
         // Live "compressed size" estimate on image grid cards (reacts to quality slider).
         const cardEstimateCache = new Map();
@@ -1191,15 +1259,32 @@
                 downloadFile(type, file.id); });
             actionDiv.appendChild(dlBtn);
 
-            // Delete
+            // Delete (inline ✓/✗ confirm)
             const delBtn = document.createElement('button');
-            delBtn.className =
-                'p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-red-500 transition-all min-h-[36px] min-w-[36px]';
+            delBtn.className = 'card-del p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all min-h-[36px] min-w-[36px]';
             delBtn.dataset.action = 'delete';
             delBtn.dataset.id = file.id;
-            delBtn.innerHTML = '<i class="fas fa-trash-alt text-xs"></i>';
-            delBtn.addEventListener('click', (e) => { e.stopPropagation();
-                deleteFile(type, file.id); });
+            delBtn.innerHTML = '<i class="fas fa-trash-can text-xs"></i>';
+            delBtn.title = 'Delete';
+            let armed = false, armTimer = null;
+            delBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!armed) {
+                    armed = true;
+                    delBtn.classList.add('armed');
+                    delBtn.innerHTML = '<i class="fas fa-check text-xs"></i>';
+                    delBtn.title = 'Confirm delete';
+                    armTimer = setTimeout(() => {
+                        armed = false;
+                        delBtn.classList.remove('armed');
+                        delBtn.innerHTML = '<i class="fas fa-trash-can text-xs"></i>';
+                        delBtn.title = 'Delete';
+                    }, 2500);
+                } else {
+                    clearTimeout(armTimer);
+                    deleteFile(type, file.id);
+                }
+            });
             actionDiv.appendChild(delBtn);
 
             // Add to conversion
@@ -1461,9 +1546,16 @@
         }
 
         function updateSelectedCount() {
-            const count = state.selectedIds.size;
+            const sel = state.selectedIds;
+            const count = sel.size;
             if (count > 0) {
-                safeText(selectedCount, `${count} selected`);
+                const imgN = state.images.filter(i => sel.has(i.id)).length;
+                const pdfN = state.pdfs.filter(p => sel.has(p.id)).length;
+                let label;
+                if (imgN && pdfN) label = `${imgN} image${imgN>1?'s':''} + ${pdfN} PDF${pdfN>1?'s':''}`;
+                else if (imgN) label = `${imgN} image${imgN>1?'s':''} selected`;
+                else label = `${pdfN} PDF${pdfN>1?'s':''} selected`;
+                safeText(selectedCount, label);
                 selectedCount.classList.remove('hidden');
             } else {
                 selectedCount.classList.add('hidden');
@@ -1555,7 +1647,6 @@
 
         // ===== DELETE, DOWNLOAD, PREVIEW =====
         function deleteFile(type, id) {
-            if (!confirm(`Delete this ${type}?`)) return;
             if (type === 'image') {
                 const idx = state.images.findIndex(i => i.id === id);
                 if (idx > -1) {
@@ -2131,15 +2222,16 @@
             const targetFormat = state.settings.bulkFormat;
             if (!items.length || !targetFormat) { showToast('No files or format selected.', 'error'); return; }
 
-            startProcessing(`Converting ${items.length} file(s) to ${targetFormat}...`, items.length);
+            startProcessing(`Converting ${items.length} file(s)...`, items.length);
             let successCount = 0;
             let fileEntries = 0;
             const JSZipLib = await ensureJSZip(); const zip = new JSZipLib();
 
             for (let i = 0; i < items.length; i++) {
                 const item = items[i];
+                const fmt = item.outputFormat || targetFormat;
                 try {
-                    const result = await produceConvertedBlob(item, targetFormat);
+                    const result = await produceConvertedBlob(item, fmt);
                     const base = item.name.replace(/\.[^.]+$/, '');
                     if (result && result.multi) {
                         const pad = String(result.blobs.length).length;
@@ -2148,7 +2240,7 @@
                             fileEntries++;
                         });
                     } else {
-                        zip.file(`${base}.${formatToExt(targetFormat)}`, result);
+                        zip.file(`${base}.${formatToExt(fmt)}`, result);
                         fileEntries++;
                     }
                     successCount++;
@@ -2177,6 +2269,49 @@
         });
 
         // ===== CONVERSION ENGINE (Lazy Loaded) =====
+        // PDFLib standard fonts only support WinAnsi; strip/replace anything outside it
+        // so drawText never throws on Nepali/emoji/smart-punctuation.
+        function sanitizeForPdf(str) {
+            return String(str)
+                .replace(/[\u2018\u2019]/g, "'")
+                .replace(/[\u201C\u201D]/g, '"')
+                .replace(/[\u2013\u2014]/g, '-')
+                .replace(/\u2026/g, '...')
+                .replace(/\t/g, '    ')
+                // drop anything not in basic Latin-1 printable range
+                .replace(/[^\x09\x0A\x0D\x20-\xFF]/g, '?');
+        }
+
+        // Lay text across as many pages as needed, wrapping long lines.
+        async function drawTextPages(pdfDoc, PDFLib, text, opts) {
+            const o = Object.assign({ width: 595, height: 842, margin: 40, size: 11, lineGap: 5 }, opts || {});
+            const font = await pdfDoc.embedFont('Helvetica');
+            const maxWidth = o.width - o.margin * 2;
+            const lineHeight = o.size + o.lineGap;
+            let page = pdfDoc.addPage([o.width, o.height]);
+            let y = o.height - o.margin;
+            const rawLines = sanitizeForPdf(text).split('\n');
+            for (const raw of rawLines) {
+                // word-wrap each line to fit maxWidth
+                const words = raw.split(' ');
+                let line = '';
+                const flush = () => {
+                    if (y < o.margin) { page = pdfDoc.addPage([o.width, o.height]); y = o.height - o.margin; }
+                    page.drawText(line, { x: o.margin, y, font, size: o.size, color: { r: 0, g: 0, b: 0 } });
+                    y -= lineHeight;
+                };
+                for (const word of words) {
+                    const test = line ? line + ' ' + word : word;
+                    let w;
+                    try { w = font.widthOfTextAtSize(test, o.size); } catch (e) { w = test.length * o.size * 0.5; }
+                    if (w > maxWidth && line) { flush(); line = word; }
+                    else line = test;
+                }
+                flush();
+            }
+            return pdfDoc;
+        }
+
         async function convertToPdf(item) {
             const PDFLib = await loadLibrary('PDFLib', 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
             const mime = item.type;
@@ -2210,15 +2345,7 @@
                 const arrayBuffer = await item.file.arrayBuffer();
                 const result = await mammoth.extractRawText({ arrayBuffer });
                 const text = result.value || 'No text extracted.';
-                const page = pdfDoc.addPage([500, 800]);
-                const font = await pdfDoc.embedFont('Helvetica');
-                const lines = text.split('\n');
-                let y = 750;
-                for (const line of lines) {
-                    if (y < 50) break;
-                    page.drawText(line, { x: 30, y, font, size: 12, color: { r: 0, g: 0, b: 0 } });
-                    y -= 18;
-                }
+                await drawTextPages(pdfDoc, PDFLib, text, { size: 12 });
             } else if (mime.includes('spreadsheetml')) {
                 const XLSX = await loadLibrary('XLSX',
                     'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
@@ -2226,18 +2353,8 @@
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
                 const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                const page = pdfDoc.addPage([600, 800]);
-                const font = await pdfDoc.embedFont('Helvetica');
-                let y = 750;
-                for (const row of data) {
-                    if (y < 30) break;
-                    let x = 30;
-                    for (const cell of row) {
-                        page.drawText(String(cell || ''), { x, y, font, size: 10, color: { r: 0, g: 0, b: 0 } });
-                        x += 100;
-                    }
-                    y -= 20;
-                }
+                const text = data.map(row => (row || []).map(c => String(c == null ? '' : c)).join('  |  ')).join('\n');
+                await drawTextPages(pdfDoc, PDFLib, text || 'Empty spreadsheet.', { size: 10 });
             } else if (mime.includes('presentationml')) {
                 const pptx2json = await loadLibrary('pptx2json',
                     'https://cdnjs.cloudflare.com/ajax/libs/pptx2json/1.0.5/pptx2json.min.js');
@@ -2253,15 +2370,8 @@
                         }
                     }
                 }
-                const page = pdfDoc.addPage([500, 800]);
-                const font = await pdfDoc.embedFont('Helvetica');
-                const lines = text.split('\n');
-                let y = 750;
-                for (const line of lines) {
-                    if (y < 50) break;
-                    page.drawText(line, { x: 30, y, font, size: 12, color: { r: 0, g: 0, b: 0 } });
-                    y -= 18;
-                }
+                const page0Text = text || 'No slide text extracted.';
+                await drawTextPages(pdfDoc, PDFLib, page0Text, { size: 12 });
             } else if (mime === 'text/html') {
                 const html2canvas = await loadLibrary('html2canvas',
                     'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
@@ -2307,10 +2417,7 @@
             let text = '';
             const mime = item.type;
             if (mime === 'application/pdf') {
-                const pdfjsLib = await loadLibrary('pdfjsLib',
-                    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
-                const buf = await item.file.arrayBuffer();
-                const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+                const doc = await openPdfDoc(item.file);
                 let fullText = '';
                 for (let i = 1; i <= doc.numPages; i++) {
                     const page = await doc.getPage(i);
@@ -2361,10 +2468,7 @@
             let data = [];
             const mime = item.type;
             if (mime === 'application/pdf') {
-                const pdfjsLib = await loadLibrary('pdfjsLib',
-                    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
-                const buf = await item.file.arrayBuffer();
-                const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+                const doc = await openPdfDoc(item.file);
                 let fullText = '';
                 for (let i = 1; i <= doc.numPages; i++) {
                     const page = await doc.getPage(i);
@@ -2429,6 +2533,182 @@
             });
         }
 
+        // ===== SMART DOWNLOAD: single file direct, 2+ as zip =====
+        async function downloadResults(results, zipName) {
+            // results: [{name, blob}]
+            if (!results.length) { showToast('Nothing to download.', 'error'); return; }
+            if (results.length === 1) {
+                downloadBlob(results[0].blob, results[0].name, results[0].blob.type || 'application/octet-stream');
+                return;
+            }
+            const JSZipLib = await ensureJSZip();
+            const zip = new JSZipLib();
+            results.forEach(r => zip.file(r.name, r.blob));
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            downloadBlob(zipBlob, zipName, 'application/zip');
+        }
+
+        function selectedImages() {
+            const sel = [...state.selectedIds];
+            return state.images.filter(i => sel.includes(i.id));
+        }
+        function imageQuality() { return (state.settings.imageQuality ?? state.settings.quality) / 100; }
+
+        // ===== RESIZE =====
+        async function resizeSelectedImages() {
+            const imgs = selectedImages();
+            if (!imgs.length) { showToast('Select images to resize.', 'error'); return; }
+            const input = prompt('Resize to max width/height (pixels). Aspect ratio is kept.', '1280');
+            if (input === null) return;
+            const maxDim = parseInt(input);
+            if (!maxDim || maxDim < 16 || maxDim > 10000) { showToast('Enter a number between 16 and 10000.', 'error'); return; }
+            startProcessing(`Resizing ${imgs.length} image(s)…`, imgs.length);
+            const results = [];
+            for (let i = 0; i < imgs.length; i++) {
+                try {
+                    const img = await loadImage(imgs[i].file);
+                    let w = img.width, h = img.height;
+                    const scale = Math.min(1, maxDim / Math.max(w, h));
+                    w = Math.round(w * scale); h = Math.round(h * scale);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', imageQuality()));
+                    results.push({ name: imgs[i].name.replace(/\.[^.]+$/, '') + `_${w}x${h}.jpg`, blob });
+                } catch (e) { showToast(`Failed: ${imgs[i].name}`, 'error'); }
+                updateProcessing(i + 1, imgs.length, `Resized ${i+1}/${imgs.length}`, imgs[i].name);
+            }
+            await downloadResults(results, 'resized_images.zip');
+            showToast(`Resized ${results.length} image(s)`, 'success');
+            finishProcessing();
+        }
+
+        // ===== ROTATE (90° clockwise) =====
+        async function rotateSelectedImages() {
+            const imgs = selectedImages();
+            if (!imgs.length) { showToast('Select images to rotate.', 'error'); return; }
+            startProcessing(`Rotating ${imgs.length} image(s)…`, imgs.length);
+            const results = [];
+            for (let i = 0; i < imgs.length; i++) {
+                try {
+                    const img = await loadImage(imgs[i].file);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.height; canvas.height = img.width;
+                    const ctx = canvas.getContext('2d');
+                    ctx.translate(canvas.width / 2, canvas.height / 2);
+                    ctx.rotate(Math.PI / 2);
+                    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', imageQuality()));
+                    results.push({ name: imgs[i].name.replace(/\.[^.]+$/, '') + '_rotated.jpg', blob });
+                } catch (e) { showToast(`Failed: ${imgs[i].name}`, 'error'); }
+                updateProcessing(i + 1, imgs.length, `Rotated ${i+1}/${imgs.length}`, imgs[i].name);
+            }
+            await downloadResults(results, 'rotated_images.zip');
+            showToast(`Rotated ${results.length} image(s)`, 'success');
+            finishProcessing();
+        }
+
+        // ===== CROP (visual drag-box modal, first selected image) =====
+        function cropSelectedImages() {
+            const imgs = selectedImages();
+            if (!imgs.length) { showToast('Select an image to crop.', 'error'); return; }
+            openCropModal(imgs[0]);
+        }
+
+        let cropState = null;
+        async function openCropModal(item) {
+            const modal = document.getElementById('cropModal');
+            const stage = document.getElementById('cropStage');
+            const imgEl = document.getElementById('cropImage');
+            const box = document.getElementById('cropBox');
+            modal.classList.remove('hidden');
+            const img = await loadImage(item.file);          // for natural dimensions + crop source
+            const dispUrl = URL.createObjectURL(item.file);  // fresh URL for the visible <img>
+            imgEl.src = dispUrl;
+            await new Promise(r => { imgEl.onload = r; if (imgEl.complete && imgEl.naturalWidth) r(); });
+            const stageW = stage.clientWidth, stageH = stage.clientHeight;
+            const dispScale = Math.min(stageW / img.width, stageH / img.height, 1);
+            const dw = img.width * dispScale, dh = img.height * dispScale;
+            imgEl.style.width = dw + 'px'; imgEl.style.height = dh + 'px';
+            imgEl.style.left = (stageW - dw) / 2 + 'px';
+            imgEl.style.top = (stageH - dh) / 2 + 'px';
+            const bw = dw * 0.6, bh = dh * 0.6;
+            const bx = (stageW - dw) / 2 + (dw - bw) / 2;
+            const by = (stageH - dh) / 2 + (dh - bh) / 2;
+            Object.assign(box.style, { left: bx + 'px', top: by + 'px', width: bw + 'px', height: bh + 'px', display: 'block' });
+            cropState = { item, img, dispScale, imgLeft: (stageW - dw) / 2, imgTop: (stageH - dh) / 2, dw, dh, dispUrl };
+        }
+
+        function setupCropInteractions() {
+            const box = document.getElementById('cropBox');
+            const stage = document.getElementById('cropStage');
+            if (!box || !stage) return;
+            let mode = null, startX, startY, orig;
+            const onDown = (e, m) => {
+                e.preventDefault(); e.stopPropagation();
+                mode = m;
+                const p = e.touches ? e.touches[0] : e;
+                startX = p.clientX; startY = p.clientY;
+                orig = { left: box.offsetLeft, top: box.offsetTop, w: box.offsetWidth, h: box.offsetHeight };
+                document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+                document.addEventListener('touchmove', onMove, { passive: false }); document.addEventListener('touchend', onUp);
+            };
+            const onMove = (e) => {
+                if (!mode || !cropState) return;
+                e.preventDefault();
+                const p = e.touches ? e.touches[0] : e;
+                const dx = p.clientX - startX, dy = p.clientY - startY;
+                const minL = cropState.imgLeft, minT = cropState.imgTop;
+                const maxR = cropState.imgLeft + cropState.dw, maxB = cropState.imgTop + cropState.dh;
+                if (mode === 'move') {
+                    let l = Math.max(minL, Math.min(orig.left + dx, maxR - orig.w));
+                    let t = Math.max(minT, Math.min(orig.top + dy, maxB - orig.h));
+                    box.style.left = l + 'px'; box.style.top = t + 'px';
+                } else if (mode === 'se') {
+                    let w = Math.max(24, Math.min(orig.w + dx, maxR - orig.left));
+                    let h = Math.max(24, Math.min(orig.h + dy, maxB - orig.top));
+                    box.style.width = w + 'px'; box.style.height = h + 'px';
+                }
+            };
+            const onUp = () => {
+                mode = null;
+                document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
+                document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onUp);
+            };
+            box.addEventListener('mousedown', (e) => { if (!e.target.classList.contains('crop-handle')) onDown(e, 'move'); });
+            box.addEventListener('touchstart', (e) => { if (!e.target.classList.contains('crop-handle')) onDown(e, 'move'); }, { passive: false });
+            const handle = box.querySelector('.crop-handle.se');
+            if (handle) {
+                handle.addEventListener('mousedown', (e) => onDown(e, 'se'));
+                handle.addEventListener('touchstart', (e) => onDown(e, 'se'), { passive: false });
+            }
+        }
+
+        async function applyCrop() {
+            if (!cropState) return;
+            const box = document.getElementById('cropBox');
+            const { img, dispScale, imgLeft, imgTop } = cropState;
+            // box position relative to image, mapped back to natural pixels
+            const sx = Math.max(0, (box.offsetLeft - imgLeft) / dispScale);
+            const sy = Math.max(0, (box.offsetTop - imgTop) / dispScale);
+            const sw = box.offsetWidth / dispScale;
+            const sh = box.offsetHeight / dispScale;
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(sw); canvas.height = Math.round(sh);
+            canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', imageQuality()));
+            downloadBlob(blob, cropState.item.name.replace(/\.[^.]+$/, '') + '_cropped.jpg', 'image/jpeg');
+            showToast('Cropped image downloaded', 'success');
+            closeCropModal();
+        }
+        function closeCropModal() {
+            document.getElementById('cropModal').classList.add('hidden');
+            if (cropState && cropState.dispUrl) URL.revokeObjectURL(cropState.dispUrl);
+            document.getElementById('cropBox').style.display = 'none';
+            cropState = null;
+        }
+
+
         // ===== CONVERT HINTS (replaces old converter grid) =====
         function updateConvertHints() {
             const hints = document.getElementById("convertHints");
@@ -2460,6 +2740,12 @@
                     compressSelected();
                 } else if (action === 'convert') {
                     addSelectedToConvert();
+                } else if (action === 'resize') {
+                    resizeSelectedImages();
+                } else if (action === 'rotate') {
+                    rotateSelectedImages();
+                } else if (action === 'crop') {
+                    cropSelectedImages();
                 } else if (action === 'mergeImages') {
                     mergeSelectedImages();
                 } else if (action === 'exportZip') {
@@ -2492,7 +2778,8 @@
             if (!images.length && !pdfs.length) { showToast('No compressible files selected.', 'error'); return; }
 
             startProcessing(`Compressing ${images.length + pdfs.length} file(s)...`, images.length + pdfs.length);
-            const JSZipLib = await ensureJSZip(); const zip = new JSZipLib();
+            const results = [];
+            const quality2 = imageQuality();
             let count = 0;
 
             for (const img of images) {
@@ -2510,8 +2797,8 @@
                         imageObj.onerror = reject;
                         imageObj.src = URL.createObjectURL(img.file);
                     });
-                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
-                    zip.file(img.name.replace(/\.[^.]+$/, '.jpg'), blob);
+                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality2));
+                    results.push({ name: img.name.replace(/\.[^.]+$/, '.jpg'), blob });
                 } catch (e) { showToast(`Failed to compress ${img.name}`, 'error'); }
                 count++;
                 updateProcessing(count, images.length + pdfs.length);
@@ -2521,35 +2808,32 @@
                 try {
                     const PDFLib = await loadLibrary('PDFLib',
                     'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
-                    const pdfjsLib = await loadLibrary('pdfjsLib',
-                        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
-                    const buf = await pdf.file.arrayBuffer();
-                    const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+                    const pdfDocObj = await openPdfDoc(pdf.file);
                     const compressedPdf = await PDFLib.PDFDocument.create();
-                    for (let i = 1; i <= doc.numPages; i++) {
-                        const page = await doc.getPage(i);
+                    const pq = (state.settings.pdfQuality ?? state.settings.quality) / 100;
+                    for (let i = 1; i <= pdfDocObj.numPages; i++) {
+                        const page = await pdfDocObj.getPage(i);
                         const viewport = page.getViewport({ scale: 1.5 });
                         const canvas = document.createElement('canvas');
                         canvas.width = viewport.width;
                         canvas.height = viewport.height;
                         const ctx = canvas.getContext('2d');
                         await page.render({ canvasContext: ctx, viewport }).promise;
-                        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+                        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', pq));
                         const imgBytes = await blob.arrayBuffer();
                         const image = await compressedPdf.embedJpg(imgBytes);
                         const newPage = compressedPdf.addPage([viewport.width, viewport.height]);
                         newPage.drawImage(image, { x: 0, y: 0, width: viewport.width, height: viewport.height });
                     }
                     const compressedBytes = await compressedPdf.save();
-                    zip.file(pdf.name, compressedBytes);
+                    results.push({ name: pdf.name, blob: new Blob([compressedBytes], { type: 'application/pdf' }) });
                 } catch (e) { showToast(`Failed to compress ${pdf.name}`, 'error'); }
                 count++;
                 updateProcessing(count, images.length + pdfs.length);
             }
 
-            if (Object.keys(zip.files).length > 0) {
-                const zipBlob = await zip.generateAsync({ type: 'blob' });
-                downloadBlob(zipBlob, 'compressed_files.zip', 'application/zip');
+            if (results.length > 0) {
+                await downloadResults(results, 'compressed_files.zip');
                 showToast('Compression complete!', 'success');
             } else {
                 showToast('No files compressed.', 'error');
@@ -2702,11 +2986,9 @@
             });
         });
         $('defaultQuality').addEventListener('change', (e) => {
-            state.settings.quality = parseInt(e.target.value);
             localStorage.setItem('studio-quality', e.target.value);
-            globalQualitySlider.value = e.target.value;
-            safeText(globalQualityDisplay, e.target.value + '%');
-            showToast(`Quality set to ${e.target.value}%`, 'info');
+            setImageQuality(e.target.value);
+            showToast(`Image quality set to ${e.target.value}%`, 'info');
         });
         const autoDeleteToggle = $('autoDeleteToggle');
         autoDeleteToggle.addEventListener('click', () => {
@@ -2817,9 +3099,13 @@
 
         // ===== INIT =====
         applyTheme(state.theme);
-        globalQualitySlider.value = state.settings.quality;
-        safeText(globalQualityDisplay, state.settings.quality + '%');
+        setImageQuality(state.settings.imageQuality);
+        setPdfQuality(state.settings.pdfQuality);
         updateFormatSelectorState();
+        setupCropInteractions();
+        $('cropClose').onclick = closeCropModal;
+        $('cropCancel').onclick = closeCropModal;
+        $('cropApply').onclick = applyCrop;
         renderAll();
         showToast('Studio Pro ready — all processing is local, nothing leaves your device.', 'success', 4000);
 
