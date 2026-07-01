@@ -558,6 +558,16 @@
                                 </div>
                             </div>
                             <input type="range" id="pdfQualitySlider" min="10" max="100" value="70" class="q-slider w-full" style="accent-color: var(--circuit);" aria-label="PDF quality">
+                            <div class="flex items-center justify-between mt-1.5">
+                                <span id="pdfEstLabel" class="mono" style="font-size:0.68rem; color: var(--muted);"></span>
+                            </div>
+                            <div class="mt-2.5 flex items-center gap-2">
+                                <label for="pdfTargetBox" class="text-xs font-medium whitespace-nowrap" style="color: var(--ink);">Target</label>
+                                <input id="pdfTargetBox" type="number" min="10" placeholder="—" class="q-box mono" style="width:64px;" aria-label="Target size KB">
+                                <span class="mono text-xs" style="color: var(--muted);">KB</span>
+                                <button id="pdfTargetApply" class="text-xs font-medium px-2 py-1 rounded-lg whitespace-nowrap" style="background: var(--circuit-soft); color: var(--circuit);">Auto-fit</button>
+                                <span id="pdfRecommend" class="mono" style="font-size:0.64rem; color: var(--muted); margin-left:auto;"></span>
+                            </div>
                         </div>
                     </div>
 
@@ -1071,11 +1081,85 @@
             const sl = $('pdfQualitySlider'), bx = $('pdfQualityBox');
             if (sl && sl.value != v) sl.value = v;
             if (bx && bx.value != v) bx.value = v;
+            schedulePdfEstimate();
         }
         globalQualitySlider.addEventListener('input', () => setImageQuality(globalQualitySlider.value));
         $('imgQualityBox').addEventListener('input', (e) => setImageQuality(e.target.value));
         $('pdfQualitySlider').addEventListener('input', (e) => setPdfQuality(e.target.value));
         $('pdfQualityBox').addEventListener('input', (e) => setPdfQuality(e.target.value));
+
+        // ===== PDF COMPRESSION ESTIMATE (page-1 sample × page count) =====
+        function selectedPdfs() {
+            return state.pdfs.filter(p => state.selectedIds.has(p.id));
+        }
+        // Estimate compressed bytes for one PDF at a given quality (0-100), sampling page 1.
+        async function estimatePdfSize(pdfItem, qPercent) {
+            const pq = qPercent / 100;
+            const scale = 0.7 + pq * 1.3;
+            const jpegQ = 0.4 + pq * 0.52;
+            const pdf = await openPdfDoc(pdfItem.file);
+            const page = await pdf.getPage(1);
+            const viewport = page.getViewport({ scale });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width; canvas.height = viewport.height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', jpegQ));
+            // approx total = page1 jpeg × pages + small pdf overhead
+            return Math.round(blob.size * pdf.numPages * 1.06 + 2000);
+        }
+
+        let pdfEstToken = 0, pdfEstTimer = null;
+        function schedulePdfEstimate() {
+            clearTimeout(pdfEstTimer);
+            pdfEstTimer = setTimeout(refreshPdfEstimate, 250);
+        }
+        async function refreshPdfEstimate() {
+            const label = $('pdfEstLabel'), rec = $('pdfRecommend');
+            const pdfs = selectedPdfs();
+            if (!label) return;
+            if (!pdfs.length) { label.textContent = ''; if (rec) rec.textContent = ''; return; }
+            const token = ++pdfEstToken;
+            label.textContent = 'estimating…';
+            try {
+                const target = pdfs[0];
+                const est = await estimatePdfSize(target, state.settings.pdfQuality);
+                if (token !== pdfEstToken) return;
+                const orig = target.size;
+                const pct = orig ? Math.round(((est - orig) / orig) * 100) : 0;
+                const arrow = est < orig ? '↓' : (est > orig ? '↑' : '');
+                const extra = pdfs.length > 1 ? ` (×${pdfs.length} selected)` : '';
+                label.innerHTML = `${target.name.length > 18 ? target.name.slice(0,16)+'…' : target.name}: ${formatBytes(orig)} → <span style="color:${est<orig?'var(--circuit)':'var(--signal)'};font-weight:600">${formatBytes(est)}</span> ${pct!==0?arrow+Math.abs(pct)+'%':''}${extra}`;
+                if (rec) {
+                    // recommend a sensible target: ~60% of original, min 50KB
+                    const recKB = Math.max(50, Math.round(orig * 0.6 / 1024));
+                    rec.textContent = `rec: ${recKB} KB`;
+                }
+            } catch (e) {
+                if (token === pdfEstToken) label.textContent = '';
+            }
+        }
+
+        // Auto-fit: binary-search the quality that gets under the target KB.
+        async function autoFitPdfTarget() {
+            const targetKB = parseInt($('pdfTargetBox').value);
+            const pdfs = selectedPdfs();
+            if (!targetKB || targetKB < 10) { showToast('Enter a target size in KB.', 'error'); return; }
+            if (!pdfs.length) { showToast('Select a PDF first.', 'error'); return; }
+            const targetBytes = targetKB * 1024;
+            const pdf = pdfs[0];
+            showToast('Finding best quality for target…', 'info');
+            let lo = 10, hi = 100, best = 10;
+            for (let iter = 0; iter < 6; iter++) {
+                const mid = Math.round((lo + hi) / 2);
+                const est = await estimatePdfSize(pdf, mid);
+                if (est <= targetBytes) { best = mid; lo = mid + 1; }
+                else { hi = mid - 1; }
+            }
+            setPdfQuality(best);
+            showToast(`Set PDF quality to ${best}% to fit ~${targetKB} KB`, 'success');
+        }
 
         // Live "compressed size" estimate on image grid cards (reacts to quality slider).
         const cardEstimateCache = new Map();
@@ -1087,10 +1171,12 @@
         }
         async function refreshCardEstimates() {
             const token = ++cardEstimateToken;
-            const quality = state.settings.quality;
+            const quality = state.settings.imageQuality ?? state.settings.quality;
             const spans = document.querySelectorAll('.card-est');
             for (const span of spans) {
                 const id = parseInt(span.dataset.id);
+                // Only estimate cards that are selected — avoids re-encoding every image on load.
+                if (!state.selectedIds.has(id)) { span.textContent = ''; continue; }
                 const file = state.images.find(f => f.id === id);
                 if (!file) continue;
                 const key = `${id}|jpeg|${quality}`;
@@ -1546,6 +1632,7 @@
         }
 
         function updateSelectedCount() {
+            schedulePdfEstimate();
             const sel = state.selectedIds;
             const count = sel.size;
             if (count > 0) {
@@ -1941,11 +2028,7 @@
                 let pages = 0,
                     thumbnail = null;
                 try {
-                    const PDFLib = await loadLibrary('PDFLib', 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
-                    const pdfjsLib = await loadLibrary('pdfjsLib',
-                        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
-                    const buf = await file.arrayBuffer();
-                    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+                    const pdf = await openPdfDoc(file);
                     pages = pdf.numPages;
                     const page = await pdf.getPage(1);
                     const viewport = page.getViewport({ scale: 0.5 });
@@ -1954,7 +2037,7 @@
                     canvas.height = viewport.height;
                     const ctx = canvas.getContext('2d');
                     await page.render({ canvasContext: ctx, viewport }).promise;
-                    thumbnail = canvas.toDataURL('image/png');
+                    thumbnail = canvas.toDataURL('image/jpeg', 0.7);
                 } catch (e) {
                     showToast(`Failed to parse PDF: ${file.name}`, 'error');
                     thumbnail = null;
@@ -2817,6 +2900,7 @@
                     const scale = 0.7 + pq * 1.3;
                     const jpegQ = 0.4 + pq * 0.52;
                     for (let i = 1; i <= pdfDocObj.numPages; i++) {
+                        updateProcessing(count, images.length + pdfs.length, `Compressing ${pdf.name} — page ${i}/${pdfDocObj.numPages}`, pdf.name);
                         const page = await pdfDocObj.getPage(i);
                         const viewport = page.getViewport({ scale });
                         const canvas = document.createElement('canvas');
@@ -2831,6 +2915,7 @@
                         const image = await compressedPdf.embedJpg(imgBytes);
                         const newPage = compressedPdf.addPage([viewport.width, viewport.height]);
                         newPage.drawImage(image, { x: 0, y: 0, width: viewport.width, height: viewport.height });
+                        await new Promise(r => setTimeout(r, 0)); // yield so UI/progress updates
                     }
                     const compressedBytes = await compressedPdf.save();
                     let outBlob = new Blob([compressedBytes], { type: 'application/pdf' });
@@ -3114,6 +3199,7 @@
         applyTheme(state.theme);
         setImageQuality(state.settings.imageQuality);
         setPdfQuality(state.settings.pdfQuality);
+        $('pdfTargetApply').addEventListener('click', autoFitPdfTarget);
         updateFormatSelectorState();
         setupCropInteractions();
         $('cropClose').onclick = closeCropModal;
