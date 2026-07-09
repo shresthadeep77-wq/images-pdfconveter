@@ -715,6 +715,98 @@
             el.textContent = text;
         }
 
+        // ===== SHARED HELPERS =====
+        // Strip a file extension: "photo.final.png" -> "photo.final".
+        function stripExt(name) { return String(name).replace(/\.[^.]+$/, ''); }
+
+        // Clamp a quality value to the 10–100 range used everywhere (default 70).
+        function clampQuality(v) { return Math.max(10, Math.min(100, parseInt(v) || 70)); }
+
+        // Promisified canvas.toBlob so callers can `await` an encoded blob.
+        function canvasToBlob(canvas, type, quality) {
+            return new Promise(res => canvas.toBlob(res, type, quality));
+        }
+
+        // Trailing-edge debounce: returns a function that reschedules `fn` after `wait` ms.
+        function debounce(fn, wait) {
+            let timer = null;
+            return function (...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), wait);
+            };
+        }
+
+        // Trigger a browser download for an object URL, then clean up the anchor.
+        function triggerDownload(url, filename) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        // Open the shared hidden file input constrained to `accept`. Selection is
+        // handled by the input's persistent change listener.
+        function openFilePicker(accept) {
+            fileInput.accept = accept;
+            fileInput.click();
+        }
+
+        // Render a pdf.js page onto a fresh canvas at `scale`; optionally paint a
+        // white background first (needed before flattening to opaque JPEG).
+        async function renderPageToCanvas(page, scale, whiteBg = false) {
+            const viewport = page.getViewport({ scale });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const ctx = canvas.getContext('2d');
+            if (whiteBg) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            return { canvas, ctx, viewport };
+        }
+
+        // Extract all text from an already-opened pdf.js document.
+        // `pageSep` is inserted between pages (default blank line).
+        async function extractPdfText(pdf, pageSep = '\n\n') {
+            let out = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                out += content.items.map(it => it.str).join(' ') + pageSep;
+            }
+            return out;
+        }
+
+        // Load pdf-lib once (used by every PDF-producing feature).
+        function loadPdfLib() {
+            return loadLibrary('PDFLib', 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+        }
+
+        // Embed a raster image into a pdf-lib document, rasterizing via canvas when
+        // it isn't already a JPEG/PNG that pdf-lib can embed directly.
+        async function embedImageInPdf(pdfDoc, file, mime) {
+            const buf = await file.arrayBuffer();
+            if (mime === 'image/jpeg') return await pdfDoc.embedJpg(buf);
+            if (mime === 'image/png') return await pdfDoc.embedPng(buf);
+            const img = await loadImage(file);
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            const pngBlob = await canvasToBlob(canvas, 'image/png');
+            return await pdfDoc.embedPng(await pngBlob.arrayBuffer());
+        }
+
+        // Build the "→ size ±pct%" readout shared by the conversion-row estimators.
+        function formatEstimateHtml(bytes, originalSize) {
+            const delta = bytes - originalSize;
+            const pct = originalSize ? Math.round((delta / originalSize) * 100) : 0;
+            const arrow = delta < 0 ? '↓' : (delta > 0 ? '↑' : '');
+            return `→ <span class="est-bytes">${formatBytes(bytes)}</span>` +
+                (pct !== 0 ? ` <span class="est-delta ${delta < 0 ? 'down' : 'up'}">${arrow}${Math.abs(pct)}%</span>` : '');
+        }
+
         // ===== URL REGISTRY (Prevents memory leaks) =====
         const urlRegistry = {
             urls: new Set(),
@@ -1064,7 +1156,7 @@
 
         // ===== GLOBAL QUALITY =====
         function setImageQuality(v) {
-            v = Math.max(10, Math.min(100, parseInt(v) || 70));
+            v = clampQuality(v);
             state.settings.imageQuality = v;
             state.settings.quality = v; // keep legacy alias in sync (used by convert estimate)
             localStorage.setItem('studio-imgQuality', v);
@@ -1075,7 +1167,7 @@
             scheduleCardEstimateRefresh();
         }
         function setPdfQuality(v) {
-            v = Math.max(10, Math.min(100, parseInt(v) || 70));
+            v = clampQuality(v);
             state.settings.pdfQuality = v;
             localStorage.setItem('studio-pdfQuality', v);
             const sl = $('pdfQualitySlider'), bx = $('pdfQualityBox');
@@ -1099,22 +1191,14 @@
             const jpegQ = 0.4 + pq * 0.52;
             const pdf = await openPdfDoc(pdfItem.file);
             const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale });
-            const canvas = document.createElement('canvas');
-            canvas.width = viewport.width; canvas.height = viewport.height;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            await page.render({ canvasContext: ctx, viewport }).promise;
-            const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', jpegQ));
+            const { canvas } = await renderPageToCanvas(page, scale, true);
+            const blob = await canvasToBlob(canvas, 'image/jpeg', jpegQ);
             // approx total = page1 jpeg × pages + small pdf overhead
             return Math.round(blob.size * pdf.numPages * 1.06 + 2000);
         }
 
-        let pdfEstToken = 0, pdfEstTimer = null;
-        function schedulePdfEstimate() {
-            clearTimeout(pdfEstTimer);
-            pdfEstTimer = setTimeout(refreshPdfEstimate, 250);
-        }
+        let pdfEstToken = 0;
+        const schedulePdfEstimate = debounce(refreshPdfEstimate, 250);
         async function refreshPdfEstimate() {
             const label = $('pdfEstLabel'), rec = $('pdfRecommend');
             const pdfs = selectedPdfs();
@@ -1164,11 +1248,7 @@
         // Live "compressed size" estimate on image grid cards (reacts to quality slider).
         const cardEstimateCache = new Map();
         let cardEstimateToken = 0;
-        let cardEstimateDebounce = null;
-        function scheduleCardEstimateRefresh() {
-            clearTimeout(cardEstimateDebounce);
-            cardEstimateDebounce = setTimeout(refreshCardEstimates, 220);
-        }
+        const scheduleCardEstimateRefresh = debounce(refreshCardEstimates, 220);
         async function refreshCardEstimates() {
             const token = ++cardEstimateToken;
             const quality = state.settings.imageQuality ?? state.settings.quality;
@@ -1756,12 +1836,7 @@
                 ?.file;
             if (!file) return;
             const url = urlRegistry.create(file);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = file.name;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+            triggerDownload(url, file.name);
             setTimeout(() => urlRegistry.revoke(url), 5000);
             showToast(`Downloading ${file.name}`, 'success');
         }
@@ -1926,12 +2001,7 @@
         function downloadBlob(data, filename, mime) {
             const blob = new Blob([data], { type: mime });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+            triggerDownload(url, filename);
             setTimeout(() => URL.revokeObjectURL(url), 5000);
         }
 
@@ -2031,12 +2101,7 @@
                     const pdf = await openPdfDoc(file);
                     pages = pdf.numPages;
                     const page = await pdf.getPage(1);
-                    const viewport = page.getViewport({ scale: 0.5 });
-                    const canvas = document.createElement('canvas');
-                    canvas.width = viewport.width;
-                    canvas.height = viewport.height;
-                    const ctx = canvas.getContext('2d');
-                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    const { canvas } = await renderPageToCanvas(page, 0.5);
                     thumbnail = canvas.toDataURL('image/jpeg', 0.7);
                 } catch (e) {
                     showToast(`Failed to parse PDF: ${file.name}`, 'error');
@@ -2082,7 +2147,7 @@
                     return;
                 }
                 const ext = formatToExt(targetFormat);
-                const name = item.name.replace(/\.[^.]+$/, '') + '.' + ext;
+                const name = stripExt(item.name) + '.' + ext;
                 downloadBlob(result, name, targetFormat);
                 updateProcessing(1, 1, 'Done', item.name);
                 showToast(`Converted ${item.name} → ${ext.toUpperCase()}`, 'success');
@@ -2103,7 +2168,7 @@
                     // Render every page; one image per page.
                     const blobs = await pdfToImages(item, targetFormat, quality);
                     if (blobs.length === 1) return blobs[0];
-                    return { multi: true, blobs, baseName: item.name.replace(/\.[^.]+$/, ''), ext: formatToExt(targetFormat) };
+                    return { multi: true, blobs, baseName: stripExt(item.name), ext: formatToExt(targetFormat) };
                 }
                 return await convertToImage(item, targetFormat, quality);
             }
@@ -2123,15 +2188,8 @@
             const blobs = [];
             for (let p = 1; p <= pdf.numPages; p++) {
                 const page = await pdf.getPage(p);
-                const viewport = page.getViewport({ scale: 2 });
-                const canvas = document.createElement('canvas');
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                await page.render({ canvasContext: ctx, viewport }).promise;
-                const blob = await new Promise(res => canvas.toBlob(res, format, quality));
+                const { canvas } = await renderPageToCanvas(page, 2, true);
+                const blob = await canvasToBlob(canvas, format, quality);
                 if (!blob) throw new Error('Canvas toBlob failed on page ' + p);
                 blobs.push(blob);
                 if (typeof updateProcessing === 'function') updateProcessing(p, pdf.numPages, `Rendering page ${p}/${pdf.numPages}`, item.name);
@@ -2163,27 +2221,15 @@
         async function pdfPageToImage(item, format, quality) {
             const pdf = await openPdfDoc(item.file);
             const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 2 });
-            const canvas = document.createElement('canvas');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            await page.render({ canvasContext: ctx, viewport }).promise;
-            const blob = await new Promise(res => canvas.toBlob(res, format, quality));
+            const { canvas } = await renderPageToCanvas(page, 2, true);
+            const blob = await canvasToBlob(canvas, format, quality);
             if (!blob) throw new Error('Canvas toBlob failed');
             return blob;
         }
 
         async function pdfToText(item) {
             const pdf = await openPdfDoc(item.file);
-            let out = '';
-            for (let p = 1; p <= pdf.numPages; p++) {
-                const page = await pdf.getPage(p);
-                const content = await page.getTextContent();
-                out += content.items.map(i => i.str).join(' ') + '\n\n';
-            }
+            const out = await extractPdfText(pdf, '\n\n');
             return new Blob([out], { type: 'text/plain' });
         }
 
@@ -2224,14 +2270,9 @@
                     const pdf = await openPdfDoc(item.file);
                     const n = pdf.numPages;
                     const page = await pdf.getPage(1);
-                    const viewport = page.getViewport({ scale: 2 });
-                    const canvas = document.createElement('canvas');
-                    canvas.width = viewport.width; canvas.height = viewport.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    const { canvas } = await renderPageToCanvas(page, 2, true);
                     const q = ['image/jpeg','image/webp'].includes(fmt) ? quality / 100 : 1;
-                    const blob = await new Promise(res => canvas.toBlob(res, fmt, q));
+                    const blob = await canvasToBlob(canvas, fmt, q);
                     bytes = blob ? blob.size * n : null;
                 } else if (['image/jpeg','image/webp'].includes(fmt) && isImageType(item.type)) {
                     const blob = await convertToImage(item, fmt, quality / 100);
@@ -2263,19 +2304,11 @@
                 const bytes = await estimateOutputSize(item);
                 if (token !== estimateRunToken) return; // a newer run superseded us
                 if (bytes == null) { out.textContent = ''; continue; }
-                const delta = bytes - item.size;
-                const pct = item.size ? Math.round((delta / item.size) * 100) : 0;
-                const arrow = delta < 0 ? '↓' : (delta > 0 ? '↑' : '');
-                out.innerHTML = `→ <span class="est-bytes">${formatBytes(bytes)}</span>` +
-                    (pct !== 0 ? ` <span class="est-delta ${delta<0?'down':'up'}">${arrow}${Math.abs(pct)}%</span>` : '');
+                out.innerHTML = formatEstimateHtml(bytes, item.size);
             }
         }
 
-        let estimateDebounce = null;
-        function scheduleEstimateRefresh() {
-            clearTimeout(estimateDebounce);
-            estimateDebounce = setTimeout(refreshSizeEstimates, 220);
-        }
+        const scheduleEstimateRefresh = debounce(refreshSizeEstimates, 220);
 
         // Re-estimate a single row's output size live as its slider moves.
         const rowEstimateTimers = {};
@@ -2292,11 +2325,7 @@
             out.textContent = '…';
             const bytes = await estimateOutputSize(item);
             if (bytes == null) { out.textContent = ''; return; }
-            const delta = bytes - item.size;
-            const pct = item.size ? Math.round((delta / item.size) * 100) : 0;
-            const arrow = delta < 0 ? '↓' : (delta > 0 ? '↑' : '');
-            out.innerHTML = `→ <span class="est-bytes">${formatBytes(bytes)}</span>` +
-                (pct !== 0 ? ` <span class="est-delta ${delta<0?'down':'up'}">${arrow}${Math.abs(pct)}%</span>` : '');
+            out.innerHTML = formatEstimateHtml(bytes, item.size);
         }
 
         // ===== BULK CONVERSION =====
@@ -2315,7 +2344,7 @@
                 const fmt = item.outputFormat || targetFormat;
                 try {
                     const result = await produceConvertedBlob(item, fmt);
-                    const base = item.name.replace(/\.[^.]+$/, '');
+                    const base = stripExt(item.name);
                     if (result && result.multi) {
                         const pad = String(result.blobs.length).length;
                         result.blobs.forEach((b, p) => {
@@ -2396,25 +2425,11 @@
         }
 
         async function convertToPdf(item) {
-            const PDFLib = await loadLibrary('PDFLib', 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+            const PDFLib = await loadPdfLib();
             const mime = item.type;
             const pdfDoc = await PDFLib.PDFDocument.create();
             if (isImageType(mime)) {
-                const buf = await item.file.arrayBuffer();
-                let image;
-                if (mime === 'image/jpeg') image = await pdfDoc.embedJpg(buf);
-                else if (mime === 'image/png') image = await pdfDoc.embedPng(buf);
-                else {
-                    const img = await loadImage(item.file);
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-                    const pngBytes = await pngBlob.arrayBuffer();
-                    image = await pdfDoc.embedPng(pngBytes);
-                }
+                const image = await embedImageInPdf(pdfDoc, item.file, mime);
                 const page = pdfDoc.addPage([image.width, image.height]);
                 page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
             } else if (mime === 'application/pdf') {
@@ -2470,7 +2485,7 @@
                 await new Promise(res => setTimeout(res, 1000));
                 const canvas = await html2canvas(iframe.contentDocument.body);
                 document.body.removeChild(iframe);
-                const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+                const pngBlob = await canvasToBlob(canvas, 'image/png');
                 const pngBytes = await pngBlob.arrayBuffer();
                 const image = await pdfDoc.embedPng(pngBytes);
                 const page = pdfDoc.addPage([image.width, image.height]);
@@ -2489,7 +2504,7 @@
             canvas.height = img.height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
-            const blob = await new Promise(res => canvas.toBlob(res, format, quality));
+            const blob = await canvasToBlob(canvas, format, quality);
             if (!blob) throw new Error('Canvas toBlob failed');
             return blob;
         }
@@ -2501,14 +2516,7 @@
             const mime = item.type;
             if (mime === 'application/pdf') {
                 const doc = await openPdfDoc(item.file);
-                let fullText = '';
-                for (let i = 1; i <= doc.numPages; i++) {
-                    const page = await doc.getPage(i);
-                    const content = await page.getTextContent();
-                    const strings = content.items.map(item => item.str);
-                    fullText += strings.join(' ') + '\n\n';
-                }
-                text = fullText;
+                text = await extractPdfText(doc, '\n\n');
             } else if (isImageType(mime)) {
                 text = 'Image file: ' + item.name + '\n(No text content)';
             } else if (mime.includes('wordprocessingml')) {
@@ -2523,14 +2531,7 @@
                 const pdfjsLib = await loadLibrary('pdfjsLib',
                     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
                 const doc = await pdfjsLib.getDocument({ data: pdfBuf }).promise;
-                let fullText = '';
-                for (let i = 1; i <= doc.numPages; i++) {
-                    const page = await doc.getPage(i);
-                    const content = await page.getTextContent();
-                    const strings = content.items.map(item => item.str);
-                    fullText += strings.join(' ') + '\n\n';
-                }
-                text = fullText;
+                text = await extractPdfText(doc, '\n\n');
             } else {
                 text = 'Unsupported input for Word conversion.';
             }
@@ -2552,15 +2553,8 @@
             const mime = item.type;
             if (mime === 'application/pdf') {
                 const doc = await openPdfDoc(item.file);
-                let fullText = '';
-                for (let i = 1; i <= doc.numPages; i++) {
-                    const page = await doc.getPage(i);
-                    const content = await page.getTextContent();
-                    const strings = content.items.map(item => item.str);
-                    fullText += strings.join(' ') + '\n';
-                }
-                const lines = fullText.split('\n');
-                data = lines.map(line => [line]);
+                const fullText = await extractPdfText(doc, '\n');
+                data = fullText.split('\n').map(line => [line]);
             } else if (isImageType(mime)) {
                 data = [
                     ['Image file:', item.name, ' (No data)']
@@ -2577,15 +2571,8 @@
                 const pdfjsLib = await loadLibrary('pdfjsLib',
                     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
                 const doc = await pdfjsLib.getDocument({ data: pdfBuf }).promise;
-                let fullText = '';
-                for (let i = 1; i <= doc.numPages; i++) {
-                    const page = await doc.getPage(i);
-                    const content = await page.getTextContent();
-                    const strings = content.items.map(item => item.str);
-                    fullText += strings.join(' ') + '\n';
-                }
-                const lines = fullText.split('\n');
-                data = lines.map(line => [line]);
+                const fullText = await extractPdfText(doc, '\n');
+                data = fullText.split('\n').map(line => [line]);
             } else {
                 data = [
                     ['Unsupported input for Excel conversion']
@@ -2656,8 +2643,8 @@
                     const canvas = document.createElement('canvas');
                     canvas.width = w; canvas.height = h;
                     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', imageQuality()));
-                    results.push({ name: imgs[i].name.replace(/\.[^.]+$/, '') + `_${w}x${h}.jpg`, blob });
+                    const blob = await canvasToBlob(canvas, 'image/jpeg', imageQuality());
+                    results.push({ name: stripExt(imgs[i].name) + `_${w}x${h}.jpg`, blob });
                 } catch (e) { showToast(`Failed: ${imgs[i].name}`, 'error'); }
                 updateProcessing(i + 1, imgs.length, `Resized ${i+1}/${imgs.length}`, imgs[i].name);
             }
@@ -2681,8 +2668,8 @@
                     ctx.translate(canvas.width / 2, canvas.height / 2);
                     ctx.rotate(Math.PI / 2);
                     ctx.drawImage(img, -img.width / 2, -img.height / 2);
-                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', imageQuality()));
-                    results.push({ name: imgs[i].name.replace(/\.[^.]+$/, '') + '_rotated.jpg', blob });
+                    const blob = await canvasToBlob(canvas, 'image/jpeg', imageQuality());
+                    results.push({ name: stripExt(imgs[i].name) + '_rotated.jpg', blob });
                 } catch (e) { showToast(`Failed: ${imgs[i].name}`, 'error'); }
                 updateProcessing(i + 1, imgs.length, `Rotated ${i+1}/${imgs.length}`, imgs[i].name);
             }
@@ -2779,8 +2766,8 @@
             const canvas = document.createElement('canvas');
             canvas.width = Math.round(sw); canvas.height = Math.round(sh);
             canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-            const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', imageQuality()));
-            downloadBlob(blob, cropState.item.name.replace(/\.[^.]+$/, '') + '_cropped.jpg', 'image/jpeg');
+            const blob = await canvasToBlob(canvas, 'image/jpeg', imageQuality());
+            downloadBlob(blob, stripExt(cropState.item.name) + '_cropped.jpg', 'image/jpeg');
             showToast('Cropped image downloaded', 'success');
             closeCropModal();
         }
@@ -2867,21 +2854,8 @@
 
             for (const img of images) {
                 try {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const imageObj = new Image();
-                    await new Promise((resolve, reject) => {
-                        imageObj.onload = () => {
-                            canvas.width = imageObj.naturalWidth;
-                            canvas.height = imageObj.naturalHeight;
-                            ctx.drawImage(imageObj, 0, 0);
-                            resolve();
-                        };
-                        imageObj.onerror = reject;
-                        imageObj.src = URL.createObjectURL(img.file);
-                    });
-                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality2));
-                    results.push({ name: img.name.replace(/\.[^.]+$/, '.jpg'), blob });
+                    const blob = await convertToImage({ file: img.file }, 'image/jpeg', quality2);
+                    results.push({ name: stripExt(img.name) + '.jpg', blob });
                 } catch (e) { showToast(`Failed to compress ${img.name}`, 'error'); }
                 count++;
                 updateProcessing(count, images.length + pdfs.length);
@@ -2889,8 +2863,7 @@
 
             for (const pdf of pdfs) {
                 try {
-                    const PDFLib = await loadLibrary('PDFLib',
-                    'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+                    const PDFLib = await loadPdfLib();
                     const pdfDocObj = await openPdfDoc(pdf.file);
                     const compressedPdf = await PDFLib.PDFDocument.create();
                     const pq = (state.settings.pdfQuality ?? state.settings.quality) / 100;
@@ -2902,15 +2875,8 @@
                     for (let i = 1; i <= pdfDocObj.numPages; i++) {
                         updateProcessing(count, images.length + pdfs.length, `Compressing ${pdf.name} — page ${i}/${pdfDocObj.numPages}`, pdf.name);
                         const page = await pdfDocObj.getPage(i);
-                        const viewport = page.getViewport({ scale });
-                        const canvas = document.createElement('canvas');
-                        canvas.width = viewport.width;
-                        canvas.height = viewport.height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.fillStyle = '#fff';
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        await page.render({ canvasContext: ctx, viewport }).promise;
-                        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', jpegQ));
+                        const { canvas, viewport } = await renderPageToCanvas(page, scale, true);
+                        const blob = await canvasToBlob(canvas, 'image/jpeg', jpegQ);
                         const imgBytes = await blob.arrayBuffer();
                         const image = await compressedPdf.embedJpg(imgBytes);
                         const newPage = compressedPdf.addPage([viewport.width, viewport.height]);
@@ -2924,7 +2890,7 @@
                         showToast(`${pdf.name}: already optimized — kept original`, 'info');
                         outBlob = pdf.file;
                     }
-                    results.push({ name: pdf.name.replace(/\.[^.]+$/, '') + '_compressed.pdf', blob: outBlob });
+                    results.push({ name: stripExt(pdf.name) + '_compressed.pdf', blob: outBlob });
                 } catch (e) { showToast(`Failed to compress ${pdf.name}: ${e.message}`, 'error'); }
                 count++;
                 updateProcessing(count, images.length + pdfs.length);
@@ -2945,25 +2911,10 @@
             if (selected.length < 2) { showToast('Select at least 2 images to merge.', 'error'); return; }
             startProcessing('Merging images into PDF...', selected.length);
             try {
-                const PDFLib = await loadLibrary('PDFLib',
-                'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+                const PDFLib = await loadPdfLib();
                 const pdfDoc = await PDFLib.PDFDocument.create();
                 for (const img of selected) {
-                    const buf = await img.file.arrayBuffer();
-                    let image;
-                    if (img.type === 'image/jpeg') image = await pdfDoc.embedJpg(buf);
-                    else if (img.type === 'image/png') image = await pdfDoc.embedPng(buf);
-                    else {
-                        const imgObj = await loadImage(img.file);
-                        const canvas = document.createElement('canvas');
-                        canvas.width = imgObj.width;
-                        canvas.height = imgObj.height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(imgObj, 0, 0);
-                        const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-                        const pngBytes = await pngBlob.arrayBuffer();
-                        image = await pdfDoc.embedPng(pngBytes);
-                    }
+                    const image = await embedImageInPdf(pdfDoc, img.file, img.type);
                     const page = pdfDoc.addPage([image.width, image.height]);
                     page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
                     updateProcessing(selected.indexOf(img) + 1, selected.length);
@@ -2982,8 +2933,7 @@
             if (selected.length < 2) { showToast('Select at least 2 PDFs to merge.', 'error'); return; }
             startProcessing('Merging PDFs...', selected.length);
             try {
-                const PDFLib = await loadLibrary('PDFLib',
-                'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+                const PDFLib = await loadPdfLib();
                 const mergedPdf = await PDFLib.PDFDocument.create();
                 for (const pdf of selected) {
                     const buf = await pdf.file.arrayBuffer();
@@ -3163,18 +3113,18 @@
         });
 
         // ===== UPLOAD BUTTONS =====
-        $('uploadImagesBtn').onclick = () => { fileInput.accept = 'image/*'; fileInput.click(); };
-        $('uploadDocsBtn').onclick = () => { fileInput.accept = '.docx,.xlsx,.pptx,.html,.htm,.pdf'; fileInput.click(); };
+        $('uploadImagesBtn').onclick = () => openFilePicker('image/*');
+        $('uploadDocsBtn').onclick = () => openFilePicker('.docx,.xlsx,.pptx,.html,.htm,.pdf');
         // Compact hero buttons
         const uploadImagesBtn2 = $('uploadImagesBtn2');
         const uploadDocsBtn2 = $('uploadDocsBtn2');
-        if (uploadImagesBtn2) uploadImagesBtn2.onclick = () => { fileInput.accept = 'image/*'; fileInput.click(); };
-        if (uploadDocsBtn2) uploadDocsBtn2.onclick = () => { fileInput.accept = '.docx,.xlsx,.pptx,.html,.htm,.pdf'; fileInput.click(); };
+        if (uploadImagesBtn2) uploadImagesBtn2.onclick = () => openFilePicker('image/*');
+        if (uploadDocsBtn2) uploadDocsBtn2.onclick = () => openFilePicker('.docx,.xlsx,.pptx,.html,.htm,.pdf');
 
         // Compact drop zone
         const compactDropZone = $('compactDropZone');
         if (compactDropZone) {
-            compactDropZone.addEventListener('click', () => { fileInput.accept = 'image/*,.pdf,.docx,.xlsx,.pptx,.html,.htm,.svg,.tiff,.tif,.avif,.ico,.bmp'; fileInput.click(); });
+            compactDropZone.addEventListener('click', () => openFilePicker('image/*,.pdf,.docx,.xlsx,.pptx,.html,.htm,.svg,.tiff,.tif,.avif,.ico,.bmp'));
             compactDropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); compactDropZone.click(); } });
             compactDropZone.addEventListener('dragover', (e) => { e.preventDefault(); compactDropZone.classList.add('dragover'); });
             compactDropZone.addEventListener('dragleave', () => compactDropZone.classList.remove('dragover'));
@@ -3182,12 +3132,9 @@
         }
 
         // ===== QUICK START BUTTONS =====
-        $('quickStartImage').addEventListener('click', () => { fileInput.accept = 'image/*';
-            fileInput.click(); });
-        $('quickStartPdf').addEventListener('click', () => { fileInput.accept = '.pdf';
-            fileInput.click(); });
-        $('quickStartOffice').addEventListener('click', () => { fileInput.accept = '.docx,.xlsx,.pptx,.html,.htm';
-            fileInput.click(); });
+        $('quickStartImage').addEventListener('click', () => openFilePicker('image/*'));
+        $('quickStartPdf').addEventListener('click', () => openFilePicker('.pdf'));
+        $('quickStartOffice').addEventListener('click', () => openFilePicker('.docx,.xlsx,.pptx,.html,.htm'));
 
         // ===== MOBILE NAV =====
         $('mobileUpload').onclick = () => fileInput.click();
