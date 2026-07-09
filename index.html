@@ -1137,6 +1137,7 @@
                     rec.textContent = `rec: ${recKB} KB`;
                 }
             } catch (e) {
+                console.warn('PDF size estimate failed:', e);
                 if (token === pdfEstToken) label.textContent = '';
             }
         }
@@ -1186,7 +1187,10 @@
                     try {
                         const blob = await convertToImage({ file: file.file, type: file.type, name: file.name }, 'image/jpeg', quality / 100);
                         bytes = blob.size;
-                    } catch (e) { bytes = null; }
+                    } catch (e) {
+                        console.warn('Could not estimate compressed size for ' + file.name + ':', e);
+                        bytes = null;
+                    }
                     cardEstimateCache.set(key, bytes);
                 }
                 if (token !== cardEstimateToken) return;
@@ -1827,7 +1831,8 @@
                     $('pdfPageInfo').textContent = `${num} / ${pdf.numPages}`;
                 };
             } catch (e) {
-                container.innerHTML = `<div class="text-slate-400"><i class="fas fa-exclamation-triangle"></i> Could not load preview.</div>`;
+                console.error('Failed to render PDF preview:', e);
+                container.innerHTML = `<div class="text-slate-400"><i class="fas fa-exclamation-triangle"></i> Could not load preview: ${escapeHtml(e && e.message ? e.message : String(e))}</div>`;
             }
         }
 
@@ -2003,10 +2008,13 @@
                         img.onload = () => { w = img.naturalWidth;
                             h = img.naturalHeight;
                             res(); };
-                        img.onerror = rej;
+                        img.onerror = () => rej(new Error('Failed to decode image: ' + file.name));
                         img.src = thumbnail;
                     });
-                } catch (e) { /* ignore */ }
+                } catch (e) {
+                    // Non-fatal: we still add the image, just without known dimensions.
+                    console.warn('Could not read dimensions for ' + file.name + ':', e);
+                }
                 state.images.push({
                     id,
                     file,
@@ -2039,7 +2047,8 @@
                     await page.render({ canvasContext: ctx, viewport }).promise;
                     thumbnail = canvas.toDataURL('image/jpeg', 0.7);
                 } catch (e) {
-                    showToast(`Failed to parse PDF: ${file.name}`, 'error');
+                    console.error(`Failed to parse PDF ${file.name}:`, e);
+                    showToast(`Failed to parse PDF: ${file.name} — ${e.message}`, 'error');
                     thumbnail = null;
                     pages = 0;
                 }
@@ -2088,6 +2097,7 @@
                 showToast(`Converted ${item.name} → ${ext.toUpperCase()}`, 'success');
                 finishProcessing();
             } catch (e) {
+                console.error(`Failed to convert ${item.name}:`, e);
                 showToast(`Failed to convert ${item.name}: ${e.message}`, 'error');
                 finishProcessing(true);
             }
@@ -2148,15 +2158,23 @@
                 if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
                     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn('Could not set pdf.js workerSrc; continuing with default:', e);
+            }
             const src = await file.arrayBuffer();
             const data = src.slice(0); // copy so the original isn't detached on reuse
             try {
                 return await pdfjsLib.getDocument({ data }).promise;
             } catch (err) {
                 // worker may have failed — retry with worker disabled
+                console.warn('pdf.js failed to open document with worker; retrying without worker:', err);
                 const data2 = src.slice(0);
-                return await pdfjsLib.getDocument({ data: data2, disableWorker: true }).promise;
+                try {
+                    return await pdfjsLib.getDocument({ data: data2, disableWorker: true }).promise;
+                } catch (err2) {
+                    console.error('pdf.js failed to open document even without worker:', err2);
+                    throw new Error('Could not open PDF "' + file.name + '": ' + (err2 && err2.message ? err2.message : err2));
+                }
             }
         }
 
@@ -2244,6 +2262,7 @@
                     bytes = (blob && blob.size != null) ? blob.size : null;
                 }
             } catch (e) {
+                console.warn('Could not estimate output size for ' + item.name + ':', e);
                 bytes = null;
             }
             sizeEstimateCache.set(key, bytes);
@@ -2308,7 +2327,16 @@
             startProcessing(`Converting ${items.length} file(s)...`, items.length);
             let successCount = 0;
             let fileEntries = 0;
-            const JSZipLib = await ensureJSZip(); const zip = new JSZipLib();
+            let JSZipLib, zip;
+            try {
+                JSZipLib = await ensureJSZip();
+                zip = new JSZipLib();
+            } catch (e) {
+                console.error('Failed to load JSZip:', e);
+                showToast('Could not load the zip library: ' + e.message, 'error');
+                finishProcessing(true);
+                return;
+            }
 
             for (let i = 0; i < items.length; i++) {
                 const item = items[i];
@@ -2328,25 +2356,33 @@
                     }
                     successCount++;
                 } catch (e) {
+                    console.error(`Failed to convert ${item.name}:`, e);
                     showToast(`Failed to convert ${item.name}: ${e.message}`, 'error');
                 }
                 updateProcessing(i + 1, items.length, `Converted ${i+1}/${items.length}`, item.name);
             }
 
             if (successCount > 0) {
-                if (fileEntries === 1) {
-                    const onlyName = Object.keys(zip.files)[0];
-                    const blob = await zip.file(onlyName).async('blob');
-                    downloadBlob(blob, onlyName, targetFormat);
-                } else {
-                    const zipBlob = await zip.generateAsync({ type: 'blob' });
-                    downloadBlob(zipBlob, 'converted_files.zip', 'application/zip');
+                try {
+                    if (fileEntries === 1) {
+                        const onlyName = Object.keys(zip.files)[0];
+                        const blob = await zip.file(onlyName).async('blob');
+                        downloadBlob(blob, onlyName, targetFormat);
+                    } else {
+                        const zipBlob = await zip.generateAsync({ type: 'blob' });
+                        downloadBlob(zipBlob, 'converted_files.zip', 'application/zip');
+                    }
+                    showToast(`Converted ${successCount} file(s) successfully!`, 'success');
+                    finishProcessing();
+                } catch (e) {
+                    console.error('Failed to package converted files:', e);
+                    showToast('Failed to package converted files: ' + e.message, 'error');
+                    finishProcessing(true);
                 }
-                showToast(`Converted ${successCount} file(s) successfully!`, 'success');
             } else {
                 showToast('No files were converted.', 'error');
+                finishProcessing(true);
             }
-            finishProcessing();
             if (state.settings.autoDelete) { state.conversionFiles = [];
                 renderAll(); }
         });
@@ -2658,12 +2694,21 @@
                     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
                     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', imageQuality()));
                     results.push({ name: imgs[i].name.replace(/\.[^.]+$/, '') + `_${w}x${h}.jpg`, blob });
-                } catch (e) { showToast(`Failed: ${imgs[i].name}`, 'error'); }
+                } catch (e) {
+                    console.error(`Failed to resize ${imgs[i].name}:`, e);
+                    showToast(`Failed to resize ${imgs[i].name}: ${e.message}`, 'error');
+                }
                 updateProcessing(i + 1, imgs.length, `Resized ${i+1}/${imgs.length}`, imgs[i].name);
             }
-            await downloadResults(results, 'resized_images.zip');
-            showToast(`Resized ${results.length} image(s)`, 'success');
-            finishProcessing();
+            try {
+                await downloadResults(results, 'resized_images.zip');
+                showToast(`Resized ${results.length} image(s)`, 'success');
+                finishProcessing(results.length === 0);
+            } catch (e) {
+                console.error('Failed to download resized images:', e);
+                showToast('Failed to download resized images: ' + e.message, 'error');
+                finishProcessing(true);
+            }
         }
 
         // ===== ROTATE (90° clockwise) =====
@@ -2683,12 +2728,21 @@
                     ctx.drawImage(img, -img.width / 2, -img.height / 2);
                     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', imageQuality()));
                     results.push({ name: imgs[i].name.replace(/\.[^.]+$/, '') + '_rotated.jpg', blob });
-                } catch (e) { showToast(`Failed: ${imgs[i].name}`, 'error'); }
+                } catch (e) {
+                    console.error(`Failed to rotate ${imgs[i].name}:`, e);
+                    showToast(`Failed to rotate ${imgs[i].name}: ${e.message}`, 'error');
+                }
                 updateProcessing(i + 1, imgs.length, `Rotated ${i+1}/${imgs.length}`, imgs[i].name);
             }
-            await downloadResults(results, 'rotated_images.zip');
-            showToast(`Rotated ${results.length} image(s)`, 'success');
-            finishProcessing();
+            try {
+                await downloadResults(results, 'rotated_images.zip');
+                showToast(`Rotated ${results.length} image(s)`, 'success');
+                finishProcessing(results.length === 0);
+            } catch (e) {
+                console.error('Failed to download rotated images:', e);
+                showToast('Failed to download rotated images: ' + e.message, 'error');
+                finishProcessing(true);
+            }
         }
 
         // ===== CROP (visual drag-box modal, first selected image) =====
@@ -2779,10 +2833,16 @@
             const canvas = document.createElement('canvas');
             canvas.width = Math.round(sw); canvas.height = Math.round(sh);
             canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-            const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', imageQuality()));
-            downloadBlob(blob, cropState.item.name.replace(/\.[^.]+$/, '') + '_cropped.jpg', 'image/jpeg');
-            showToast('Cropped image downloaded', 'success');
-            closeCropModal();
+            try {
+                const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', imageQuality()));
+                if (!blob) throw new Error('Canvas toBlob failed');
+                downloadBlob(blob, cropState.item.name.replace(/\.[^.]+$/, '') + '_cropped.jpg', 'image/jpeg');
+                showToast('Cropped image downloaded', 'success');
+                closeCropModal();
+            } catch (e) {
+                console.error('Failed to crop image:', e);
+                showToast('Failed to crop image: ' + e.message, 'error');
+            }
         }
         function closeCropModal() {
             document.getElementById('cropModal').classList.add('hidden');
@@ -2877,12 +2937,15 @@
                             ctx.drawImage(imageObj, 0, 0);
                             resolve();
                         };
-                        imageObj.onerror = reject;
+                        imageObj.onerror = () => reject(new Error('Failed to decode image: ' + img.name));
                         imageObj.src = URL.createObjectURL(img.file);
                     });
                     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality2));
                     results.push({ name: img.name.replace(/\.[^.]+$/, '.jpg'), blob });
-                } catch (e) { showToast(`Failed to compress ${img.name}`, 'error'); }
+                } catch (e) {
+                    console.error(`Failed to compress ${img.name}:`, e);
+                    showToast(`Failed to compress ${img.name}: ${e.message}`, 'error');
+                }
                 count++;
                 updateProcessing(count, images.length + pdfs.length);
             }
@@ -2925,18 +2988,28 @@
                         outBlob = pdf.file;
                     }
                     results.push({ name: pdf.name.replace(/\.[^.]+$/, '') + '_compressed.pdf', blob: outBlob });
-                } catch (e) { showToast(`Failed to compress ${pdf.name}: ${e.message}`, 'error'); }
+                } catch (e) {
+                    console.error(`Failed to compress ${pdf.name}:`, e);
+                    showToast(`Failed to compress ${pdf.name}: ${e.message}`, 'error');
+                }
                 count++;
                 updateProcessing(count, images.length + pdfs.length);
             }
 
             if (results.length > 0) {
-                await downloadResults(results, 'compressed_files.zip');
-                showToast('Compression complete!', 'success');
+                try {
+                    await downloadResults(results, 'compressed_files.zip');
+                    showToast('Compression complete!', 'success');
+                    finishProcessing();
+                } catch (e) {
+                    console.error('Failed to download compressed files:', e);
+                    showToast('Failed to download compressed files: ' + e.message, 'error');
+                    finishProcessing(true);
+                }
             } else {
                 showToast('No files compressed.', 'error');
+                finishProcessing(true);
             }
-            finishProcessing();
         }
 
         // ===== MERGE IMAGES =====
@@ -2972,8 +3045,11 @@
                 downloadBlob(bytes, 'merged_images.pdf', 'application/pdf');
                 showToast('Images merged successfully!', 'success');
                 finishProcessing();
-            } catch (e) { showToast('Error merging: ' + e.message, 'error');
-                finishProcessing(true); }
+            } catch (e) {
+                console.error('Error merging images:', e);
+                showToast('Error merging: ' + e.message, 'error');
+                finishProcessing(true);
+            }
         }
 
         // ===== MERGE PDFS =====
@@ -2996,8 +3072,11 @@
                 downloadBlob(bytes, 'merged.pdf', 'application/pdf');
                 showToast('PDFs merged!', 'success');
                 finishProcessing();
-            } catch (e) { showToast('Error: ' + e.message, 'error');
-                finishProcessing(true); }
+            } catch (e) {
+                console.error('Error merging PDFs:', e);
+                showToast('Error: ' + e.message, 'error');
+                finishProcessing(true);
+            }
         }
 
         // ===== EXPORT ZIP =====
@@ -3006,15 +3085,21 @@
                 state.selectedIds.has(p.id));
             if (!items.length) { showToast('Select files to export.', 'error'); return; }
             startProcessing('Creating ZIP...', items.length);
-            const JSZipLib = await ensureJSZip(); const zip = new JSZipLib();
-            for (const item of items) {
-                zip.file(item.name, await item.file.arrayBuffer());
-                updateProcessing(items.indexOf(item) + 1, items.length);
+            try {
+                const JSZipLib = await ensureJSZip(); const zip = new JSZipLib();
+                for (const item of items) {
+                    zip.file(item.name, await item.file.arrayBuffer());
+                    updateProcessing(items.indexOf(item) + 1, items.length);
+                }
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                downloadBlob(zipBlob, `${type}_export.zip`, 'application/zip');
+                showToast('ZIP created!', 'success');
+                finishProcessing();
+            } catch (e) {
+                console.error('Failed to create ZIP:', e);
+                showToast('Failed to create ZIP: ' + e.message, 'error');
+                finishProcessing(true);
             }
-            const zipBlob = await zip.generateAsync({ type: 'blob' });
-            downloadBlob(zipBlob, `${type}_export.zip`, 'application/zip');
-            showToast('ZIP created!', 'success');
-            finishProcessing();
         }
 
         async function splitSelectedPdf() {
@@ -3211,6 +3296,24 @@
         // Clean up URLs when page unloads
         window.addEventListener('beforeunload', () => {
             urlRegistry.revokeAll();
+        });
+
+        // ===== GLOBAL ERROR SAFETY NET =====
+        // Surface any error that escapes a handler instead of letting it vanish
+        // into the console. Also un-stick the processing modal if it was left open.
+        function reportUnexpectedError(err) {
+            console.error('Unhandled error:', err);
+            const msg = err && err.message ? err.message : String(err);
+            try { showToast('Unexpected error: ' + msg, 'error'); } catch (_) {}
+            const modal = document.getElementById('processingModal');
+            if (modal && !modal.classList.contains('hidden')) finishProcessing(true);
+        }
+        window.addEventListener('unhandledrejection', (e) => {
+            reportUnexpectedError(e.reason);
+        });
+        window.addEventListener('error', (e) => {
+            // Ignore resource load errors (img/script) — those are handled where they occur.
+            if (e.error) reportUnexpectedError(e.error);
         });
 
         console.log('Studio Pro initialized.');
