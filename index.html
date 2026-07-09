@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Restrict where scripts/styles/resources may load from. 'unsafe-inline'/'unsafe-eval'
+         are required by the Tailwind CDN runtime and the inline app code. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' blob: data: https://cdnjs.cloudflare.com https://unpkg.com; worker-src 'self' blob: https://cdnjs.cloudflare.com; frame-src 'self' blob:; object-src 'none'; base-uri 'self'">
+
     <title>Studio Pro – Local Converter & Compressor</title>
     <meta name="description" content="Convert, compress, resize, merge and edit images & PDFs — fully offline, right in your browser. No uploads, no server, no account needed.">
     <meta property="og:title" content="Studio Pro – Local Converter & Compressor">
@@ -875,7 +879,7 @@
             if (!filtered.length) {
                 const div = document.createElement('div');
                 div.className = 'col-span-full text-center py-6 text-slate-400 dark:text-slate-500 text-sm';
-                div.innerHTML = `<i class="fas fa-search text-xl block mb-2 opacity-50"></i> No formats found for "${formatSearchQuery}"`;
+                div.innerHTML = `<i class="fas fa-search text-xl block mb-2 opacity-50"></i> No formats found for "${escapeHtml(formatSearchQuery)}"`;
                 formatGrid.appendChild(div);
                 return;
             }
@@ -1130,7 +1134,8 @@
                 const pct = orig ? Math.round(((est - orig) / orig) * 100) : 0;
                 const arrow = est < orig ? '↓' : (est > orig ? '↑' : '');
                 const extra = pdfs.length > 1 ? ` (×${pdfs.length} selected)` : '';
-                label.innerHTML = `${target.name.length > 18 ? target.name.slice(0,16)+'…' : target.name}: ${formatBytes(orig)} → <span style="color:${est<orig?'var(--circuit)':'var(--signal)'};font-weight:600">${formatBytes(est)}</span> ${pct!==0?arrow+Math.abs(pct)+'%':''}${extra}`;
+                const displayName = escapeHtml(target.name.length > 18 ? target.name.slice(0,16)+'…' : target.name);
+                label.innerHTML = `${displayName}: ${formatBytes(orig)} → <span style="color:${est<orig?'var(--circuit)':'var(--signal)'};font-weight:600">${formatBytes(est)}</span> ${pct!==0?arrow+Math.abs(pct)+'%':''}${extra}`;
                 if (rec) {
                     // recommend a sensible target: ~60% of original, min 50KB
                     const recKB = Math.max(50, Math.round(orig * 0.6 / 1024));
@@ -2464,6 +2469,9 @@
                 iframe.style.width = '800px';
                 iframe.style.height = '600px';
                 iframe.style.top = '-9999px';
+                // Render untrusted HTML with scripts disabled (no allow-scripts) while
+                // keeping same-origin access so html2canvas can read the rendered DOM.
+                iframe.setAttribute('sandbox', 'allow-same-origin');
                 document.body.appendChild(iframe);
                 iframe.contentDocument.write(htmlContent);
                 iframe.contentDocument.close();
