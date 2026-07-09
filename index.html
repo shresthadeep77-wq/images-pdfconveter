@@ -227,6 +227,27 @@
 
         /* ===== Action rail ===== */
         .action-rail { transition: opacity 0.2s ease; }
+        /* Hide the (all-disabled) action rail until files exist, and let the
+           workspace reclaim the full width so the empty state isn't lopsided. */
+        #workspace.no-files .action-rail,
+        #workspace.no-files #selectionBar { display: none; }
+        @media (min-width: 1024px) {
+            #workspace.no-files .workspace-split { grid-template-columns: 1fr; }
+        }
+
+        /* ===== Hero feature row (empty state) ===== */
+        .feature-row {
+            display: flex; flex-wrap: wrap; justify-content: center;
+            gap: 8px; margin-top: 22px;
+        }
+        .feature-pill {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 8px 14px; border-radius: 999px;
+            background: var(--surface-2); border: 1px solid var(--line);
+            font-size: 0.8rem; font-weight: 500; color: var(--ink);
+        }
+        .feature-pill i { font-size: 0.85rem; color: var(--signal); }
+        .feature-pill:nth-child(2) i { color: var(--circuit); }
 
         /* ===== Quality slider ===== */
         input[type="range"].q-slider { accent-color: var(--signal); }
@@ -430,6 +451,14 @@
                     <button id="uploadImagesBtn" class="px-4 py-2.5 panel-2 rounded-xl font-medium flex items-center gap-2 min-h-[44px] transition-all hover:border-signal" style="color: var(--ink);"><i class="fas fa-image" style="color: var(--signal);" aria-hidden="true"></i> Upload images</button>
                     <button id="uploadDocsBtn" class="px-4 py-2.5 panel-2 rounded-xl font-medium flex items-center gap-2 min-h-[44px] transition-all hover:border-signal" style="color: var(--ink);"><i class="fas fa-file-lines" style="color: var(--circuit);" aria-hidden="true"></i> Office / HTML</button>
                 </div>
+
+                <!-- What you can do — orients the empty screen -->
+                <div class="feature-row" aria-label="What you can do">
+                    <span class="feature-pill"><i class="fas fa-exchange-alt" aria-hidden="true"></i> Convert</span>
+                    <span class="feature-pill"><i class="fas fa-compress" aria-hidden="true"></i> Compress</span>
+                    <span class="feature-pill"><i class="fas fa-crop-simple" aria-hidden="true"></i> Resize</span>
+                    <span class="feature-pill"><i class="fas fa-object-group" aria-hidden="true"></i> Merge</span>
+                </div>
             </div>
 
             <!-- Compact hero (files present) -->
@@ -452,7 +481,7 @@
                 <!-- LEFT: file grids + conversion list -->
                 <div class="min-w-0">
                     <!-- Selection bar -->
-                    <div class="flex items-center gap-3 mb-4 flex-wrap">
+                    <div id="selectionBar" class="flex items-center gap-3 mb-4 flex-wrap">
                         <div class="relative flex-1 min-w-[180px]">
                             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-sm" style="color: var(--muted);" aria-hidden="true"></i>
                             <input id="searchInput" type="text" placeholder="Filter files…" class="w-full pl-9 pr-3 py-2.5 panel rounded-xl text-sm outline-none" style="background: var(--surface); color: var(--ink);" aria-label="Filter files by name">
@@ -518,18 +547,6 @@
                         </div>
                     </div>
 
-                    <!-- Empty state -->
-                    <div id="emptyState" class="flex flex-col items-center justify-center py-16 text-center">
-                        <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl mb-4" style="background: var(--surface-2); color: var(--line-strong);"><i class="fas fa-folder-open" aria-hidden="true"></i></div>
-                        <h2 class="font-display text-xl font-semibold" style="color: var(--ink);">Nothing loaded yet</h2>
-                        <p class="max-w-sm mt-1 mb-6" style="color: var(--muted);">Add files to convert, compress, or merge them — all locally.</p>
-                        <div class="flex flex-wrap items-center justify-center gap-3">
-                            <button onclick="document.getElementById('fileInput').click()" class="px-6 py-2.5 text-white font-semibold rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="background: var(--signal);"><i class="fas fa-arrow-up-from-bracket" aria-hidden="true"></i> Upload files</button>
-                            <button id="quickStartImage" class="px-4 py-2.5 panel-2 rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="color: var(--ink);"><i class="fas fa-image" style="color: var(--signal);" aria-hidden="true"></i> Images</button>
-                            <button id="quickStartPdf" class="px-4 py-2.5 panel-2 rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="color: var(--ink);"><i class="fas fa-file-pdf" style="color: var(--circuit);" aria-hidden="true"></i> PDFs</button>
-                            <button id="quickStartOffice" class="px-4 py-2.5 panel-2 rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="color: var(--ink);"><i class="fas fa-file-lines" style="color: var(--muted);" aria-hidden="true"></i> Office</button>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- RIGHT: contextual action rail -->
@@ -801,7 +818,7 @@
             fileGrid = $('fileGrid'),
             conversionList = $('conversionList'),
             conversionSection = $('conversionSection'),
-            emptyState = $('emptyState'),
+            workspace = $('workspace'),
             heroUpload = $('heroUpload'),
             imgCount = $('imgCount'),
             pdfCount = $('pdfCount'),
@@ -1603,12 +1620,12 @@
         function updateEmptyState() {
             const hasFiles = state.images.length > 0 || state.pdfs.length > 0 || state.conversionFiles.length > 0;
             if (!hasFiles) {
-                emptyState.classList.remove('hidden');
+                workspace.classList.add('no-files');
                 fileGrid.classList.add('hidden');
                 conversionSection.classList.add('hidden');
                 heroUpload.classList.remove('compact');
             } else {
-                emptyState.classList.add('hidden');
+                workspace.classList.remove('no-files');
                 fileGrid.classList.remove('hidden');
                 conversionSection.classList.remove('hidden');
                 heroUpload.classList.add('compact');
@@ -3096,14 +3113,6 @@
             compactDropZone.addEventListener('dragleave', () => compactDropZone.classList.remove('dragover'));
             compactDropZone.addEventListener('drop', (e) => { e.preventDefault(); compactDropZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files, 'auto'); });
         }
-
-        // ===== QUICK START BUTTONS =====
-        $('quickStartImage').addEventListener('click', () => { fileInput.accept = 'image/*';
-            fileInput.click(); });
-        $('quickStartPdf').addEventListener('click', () => { fileInput.accept = '.pdf';
-            fileInput.click(); });
-        $('quickStartOffice').addEventListener('click', () => { fileInput.accept = '.docx,.xlsx,.pptx,.html,.htm';
-            fileInput.click(); });
 
         // ===== MOBILE NAV =====
         $('mobileUpload').onclick = () => fileInput.click();
