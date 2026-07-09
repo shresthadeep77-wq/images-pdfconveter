@@ -1,0 +1,11 @@
+{
+  "name": "images-pdfconveter",
+  "version": "1.0.0",
+  "description": "Studio Pro - local, offline image & PDF converter/compressor (single-file browser app).",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage"
+  },
+  "license": "MIT"
+}
