@@ -422,11 +422,13 @@
                     <p class="font-medium" style="color: var(--ink);">Drop files here or <span style="color: var(--signal); text-decoration: underline; text-underline-offset: 3px;">browse</span></p>
                     <p class="status-strip mt-2" style="color: var(--muted);">PNG · JPG · WEBP · GIF · TIFF · SVG · PDF · DOCX · XLSX · PPTX · HTML — max 50&nbsp;MB</p>
                     <input id="fileInput" type="file" class="hidden" multiple accept="image/*,.pdf,.docx,.xlsx,.pptx,.html,.htm,.svg,.tiff,.tif,.avif,.ico,.bmp">
+                    <input id="folderInput" type="file" class="hidden" webkitdirectory multiple>
                 </div>
 
                 <div class="flex flex-wrap items-center justify-center gap-3 mt-6">
                     <button id="uploadImagesBtn" class="px-4 py-2.5 panel-2 rounded-xl font-medium flex items-center gap-2 min-h-[44px] transition-all hover:border-signal" style="color: var(--ink);"><i class="fas fa-image" style="color: var(--signal);" aria-hidden="true"></i> Upload images</button>
                     <button id="uploadDocsBtn" class="px-4 py-2.5 panel-2 rounded-xl font-medium flex items-center gap-2 min-h-[44px] transition-all hover:border-signal" style="color: var(--ink);"><i class="fas fa-file-lines" style="color: var(--circuit);" aria-hidden="true"></i> Office / HTML</button>
+                    <button id="uploadFolderBtn" class="px-4 py-2.5 panel-2 rounded-xl font-medium flex items-center gap-2 min-h-[44px] transition-all hover:border-signal" style="color: var(--ink);"><i class="fas fa-folder-plus" style="color: var(--signal);" aria-hidden="true"></i> Upload folder</button>
                 </div>
             </div>
 
@@ -438,6 +440,7 @@
                 </div>
                 <button id="uploadImagesBtn2" class="px-3 py-2.5 panel-2 rounded-xl text-sm font-medium flex items-center gap-2 min-h-[44px] whitespace-nowrap" style="color: var(--ink);"><i class="fas fa-image" style="color: var(--signal);" aria-hidden="true"></i> <span class="hidden sm:inline">Images</span></button>
                 <button id="uploadDocsBtn2" class="px-3 py-2.5 panel-2 rounded-xl text-sm font-medium flex items-center gap-2 min-h-[44px] whitespace-nowrap" style="color: var(--ink);"><i class="fas fa-file-lines" style="color: var(--circuit);" aria-hidden="true"></i> <span class="hidden sm:inline">Docs</span></button>
+                <button id="uploadFolderBtn2" class="px-3 py-2.5 panel-2 rounded-xl text-sm font-medium flex items-center gap-2 min-h-[44px] whitespace-nowrap" style="color: var(--ink);"><i class="fas fa-folder-plus" style="color: var(--signal);" aria-hidden="true"></i> <span class="hidden sm:inline">Folder</span></button>
             </div>
         </section>
 
@@ -458,6 +461,8 @@
                         <span id="selectedCount" class="status-strip hidden px-2.5 py-1 rounded-lg" style="background: var(--signal-soft); color: var(--signal);">0 selected</span>
                         <button id="selectAllBtn" class="text-xs font-medium px-3 py-2 rounded-lg transition-all min-h-[40px]" style="color: var(--muted);">Select all</button>
                         <button id="clearSelectedBtn" class="text-xs font-medium px-3 py-2 rounded-lg transition-all min-h-[40px]" style="color: var(--muted);">Clear</button>
+                        <button id="convertSelectedBtn" class="text-xs font-medium px-3 py-2 rounded-lg transition-all min-h-[40px] flex items-center gap-1.5" style="color: var(--signal);"><i class="fas fa-exchange-alt" aria-hidden="true"></i> Convert</button>
+                        <button id="deleteSelectedBtn" class="text-xs font-medium px-3 py-2 rounded-lg transition-all min-h-[40px] flex items-center gap-1.5" style="color: #D85A30;"><i class="fas fa-trash-can" aria-hidden="true"></i> Delete</button>
                     </div>
 
                     <!-- Unified grid: all file types mixed -->
@@ -467,7 +472,10 @@
                     <div id="conversionSection" class="mt-8 pt-8" style="border-top: 1px solid var(--line);">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="font-display text-lg font-semibold flex items-center gap-2" style="color: var(--ink);"><i class="fas fa-exchange-alt" style="color: var(--signal);" aria-hidden="true"></i> Convert <span id="convCount" class="count">0</span></h2>
-                            <button id="addToConvertBtn" class="text-sm font-medium flex items-center gap-1.5 min-h-[44px]" style="color: var(--signal);"><i class="fas fa-plus" aria-hidden="true"></i> Add files</button>
+                            <div class="flex items-center gap-2">
+                                <button id="addToConvertBtn" class="text-sm font-medium flex items-center gap-1.5 min-h-[44px]" style="color: var(--signal);"><i class="fas fa-plus" aria-hidden="true"></i> Add files</button>
+                                <button id="addFolderBtn" class="text-sm font-medium flex items-center gap-1.5 min-h-[44px]" style="color: var(--signal);"><i class="fas fa-folder-plus" aria-hidden="true"></i> Add folder</button>
+                            </div>
                         </div>
                         <div class="conversion-list-wrapper">
                             <div id="conversionList"></div>
@@ -526,6 +534,7 @@
                             <button id="quickStartImage" class="px-4 py-2.5 panel-2 rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="color: var(--ink);"><i class="fas fa-image" style="color: var(--signal);" aria-hidden="true"></i> Images</button>
                             <button id="quickStartPdf" class="px-4 py-2.5 panel-2 rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="color: var(--ink);"><i class="fas fa-file-pdf" style="color: var(--circuit);" aria-hidden="true"></i> PDFs</button>
                             <button id="quickStartOffice" class="px-4 py-2.5 panel-2 rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="color: var(--ink);"><i class="fas fa-file-lines" style="color: var(--muted);" aria-hidden="true"></i> Office</button>
+                            <button id="quickStartFolder" class="px-4 py-2.5 panel-2 rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="color: var(--ink);"><i class="fas fa-folder-plus" style="color: var(--signal);" aria-hidden="true"></i> Folder</button>
                         </div>
                     </div>
                 </div>
@@ -1673,6 +1682,7 @@
 
         // ===== ACTIONS =====
         async function addToConversion(files) {
+            let added = 0;
             for (const file of files) {
                 const id = generateId();
                 const ext = getFileExtension(file.name);
@@ -1698,8 +1708,9 @@
                     quality: state.settings.quality,
                     status: 'ready'
                 });
+                added++;
             }
-            if (files.length) showToast(`Added ${files.length} file(s) to conversion queue`, 'success');
+            if (added) showToast(`Added ${added} file(s) to conversion queue`, 'success');
             renderAll();
         }
 
@@ -1715,7 +1726,6 @@
         }
 
         function removeConversionFile(id) {
-            if (!confirm('Remove this file?')) return;
             state.conversionFiles = state.conversionFiles.filter(f => f.id !== id);
             renderAll();
         }
@@ -1952,6 +1962,15 @@
             if (e.target.files.length) {
                 const target = state.activeTab === 'convert' ? 'convert' : 'auto';
                 handleFiles(e.target.files, target);
+                e.target.value = '';
+            }
+        });
+
+        // Folder picker: adds every supported file inside the chosen folder
+        // (recursively, via webkitdirectory) straight into the conversion queue.
+        $('folderInput').addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFiles(e.target.files, 'convert');
                 e.target.value = '';
             }
         });
@@ -3110,6 +3129,41 @@
         });
         $('clearSelectedBtn').addEventListener('click', () => { state.selectedIds.clear();
             renderAll(); });
+        $('convertSelectedBtn').addEventListener('click', () => addSelectedToConvert());
+
+        // Tap-to-arm delete (no confirm() dialog — those can be silently
+        // blocked in embedded/sandboxed browser contexts).
+        (function () {
+            const btn = $('deleteSelectedBtn');
+            let armed = false, armTimer = null;
+            function reset() {
+                armed = false;
+                clearTimeout(armTimer);
+                btn.innerHTML = '<i class="fas fa-trash-can" aria-hidden="true"></i> Delete';
+                btn.style.color = '#D85A30';
+            }
+            btn.addEventListener('click', () => {
+                if (!state.selectedIds.size) { showToast('Select files first.', 'error'); return; }
+                if (!armed) {
+                    armed = true;
+                    btn.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i> Confirm?';
+                    btn.style.color = '#fff';
+                    btn.style.background = 'var(--signal)';
+                    armTimer = setTimeout(() => { reset(); btn.style.background = ''; }, 2500);
+                    return;
+                }
+                clearTimeout(armTimer);
+                const ids = new Set(state.selectedIds);
+                state.images.forEach(i => { if (ids.has(i.id)) urlRegistry.revoke(i.thumbnail); });
+                state.images = state.images.filter(i => !ids.has(i.id));
+                state.pdfs = state.pdfs.filter(p => !ids.has(p.id));
+                state.selectedIds.clear();
+                btn.style.background = '';
+                reset();
+                renderAll();
+                showToast('Selected files deleted.', 'info');
+            });
+        })();
 
         // (tab switching removed — single unified grid)
 
@@ -3134,7 +3188,6 @@
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 if (isTypingContext()) return; // never intercept text editing
                 if (state.selectedIds.size === 0) return;
-                if (!confirm(`Delete ${state.selectedIds.size} selected file(s)?`)) return;
                 const ids = new Set(state.selectedIds);
                 state.images = state.images.filter(i => !ids.has(i.id));
                 state.pdfs = state.pdfs.filter(p => !ids.has(p.id));
@@ -3162,14 +3215,21 @@
             fileInput.click();
         });
 
+        // Add folder button in the Convert box header
+        $('addFolderBtn').addEventListener('click', () => $('folderInput').click());
+
         // ===== UPLOAD BUTTONS =====
         $('uploadImagesBtn').onclick = () => { fileInput.accept = 'image/*'; fileInput.click(); };
         $('uploadDocsBtn').onclick = () => { fileInput.accept = '.docx,.xlsx,.pptx,.html,.htm,.pdf'; fileInput.click(); };
+        const uploadFolderBtn = $('uploadFolderBtn');
+        if (uploadFolderBtn) uploadFolderBtn.onclick = () => $('folderInput').click();
         // Compact hero buttons
         const uploadImagesBtn2 = $('uploadImagesBtn2');
         const uploadDocsBtn2 = $('uploadDocsBtn2');
+        const uploadFolderBtn2 = $('uploadFolderBtn2');
         if (uploadImagesBtn2) uploadImagesBtn2.onclick = () => { fileInput.accept = 'image/*'; fileInput.click(); };
         if (uploadDocsBtn2) uploadDocsBtn2.onclick = () => { fileInput.accept = '.docx,.xlsx,.pptx,.html,.htm,.pdf'; fileInput.click(); };
+        if (uploadFolderBtn2) uploadFolderBtn2.onclick = () => $('folderInput').click();
 
         // Compact drop zone
         const compactDropZone = $('compactDropZone');
@@ -3188,6 +3248,8 @@
             fileInput.click(); });
         $('quickStartOffice').addEventListener('click', () => { fileInput.accept = '.docx,.xlsx,.pptx,.html,.htm';
             fileInput.click(); });
+        const quickStartFolder = $('quickStartFolder');
+        if (quickStartFolder) quickStartFolder.addEventListener('click', () => $('folderInput').click());
 
         // ===== MOBILE NAV =====
         $('mobileUpload').onclick = () => fileInput.click();
@@ -3264,4 +3326,4 @@
             render(false);
         })();
     </script>
-</body>
+</body></html>
