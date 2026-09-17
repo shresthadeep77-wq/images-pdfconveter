@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>PI & PO Maker</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Trebuchet MS", "Segoe UI", Tahoma, Verdana, sans-serif; background: linear-gradient(160deg, #eef2f7 0%, #f6f8fb 40%, #eef4fa 100%); background-attachment: fixed; color: #111827; font-size: 14px; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; font-size: 14px; }
+input, select, textarea { font-family: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; width: 100%; background: white; }
+input, select, textarea { transition: border-color .2s ease, box-shadow .2s ease; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: #1F4E79; box-shadow: 0 0 0 3px rgba(31,78,121,.15); }
+
+/* Animations */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes popIn { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
+@keyframes toastIn { from { opacity: 0; transform: translateY(16px) scale(.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.content > * { animation: fadeUp .35s ease both; }
+.content > *:nth-child(2) { animation-delay: .05s; }
+.content > *:nth-child(3) { animation-delay: .1s; }
+.content > *:nth-child(4) { animation-delay: .15s; }
+label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+.field { margin-bottom: 12px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+.row > * { flex: 1; min-width: 140px; }
+
+/* Layout */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+.topbar { background: linear-gradient(135deg, #1F4E79 0%, #2d6ba3 100%); box-shadow: 0 2px 10px rgba(31,78,121,.25); color: white; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 40; }
+.topbar h1 { font-size: 16px; font-weight: 600; }
+.biz-switcher { background: rgba(255,255,255,.15); color: white; border: 1px solid rgba(255,255,255,.3); padding: 6px 10px; border-radius: 6px; font-size: 13px; max-width: 200px; }
+.biz-switcher option { color: black; }
+.tabs { background: white; display: flex; overflow-x: auto; border-bottom: 1px solid #e5e7eb; position: sticky; top: 48px; z-index: 30; }
+.tab { padding: 12px 16px; font-size: 13px; font-weight: 500; color: #6b7280; white-space: nowrap; border-bottom: 2px solid transparent; transition: color .2s ease, border-color .2s ease, background .2s ease; }
+.tab:hover { color: #1F4E79; background: rgba(31,78,121,.05); }
+.tab.active { color: #1F4E79; border-bottom-color: #1F4E79; }
+.content { flex: 1; padding: 16px; max-width: 900px; width: 100%; margin: 0 auto; }
+@media (min-width: 768px) { .content { padding: 24px; } }
+
+/* Cards */
+.card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(17,24,39,.05); transition: box-shadow .25s ease, transform .25s ease; }
+.card:hover { box-shadow: 0 4px 14px rgba(17,24,39,.08); }
+.card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: #1F4E79; }
+.list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: white; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; }
+.list-item { transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; animation: fadeUp .3s ease both; }
+.list-item:hover { border-color: #1F4E79; box-shadow: 0 3px 10px rgba(31,78,121,.12); transform: translateY(-1px); }
+.list-item .info { flex: 1; min-width: 0; }
+.list-item .info .name { font-weight: 600; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-item .info .sub { font-size: 12px; color: #6b7280; }
+.list-item .actions { display: flex; gap: 6px; }
+
+/* Buttons */
+.btn { padding: 8px 14px; border-radius: 6px; font-weight: 500; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; transition: background .2s ease, transform .15s ease, box-shadow .2s ease; }
+.btn:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.12); }
+.btn:active { transform: translateY(0) scale(.98); box-shadow: none; }
+.btn-primary { background: #1F4E79; color: white; }
+.btn-primary:hover { background: #163a5c; }
+.btn-secondary { background: #e5e7eb; color: #374151; }
+.btn-secondary:hover { background: #d1d5db; }
+.btn-danger { background: #dc2626; color: white; }
+.btn-icon { padding: 6px 10px; background: #f3f4f6; color: #374151; border-radius: 6px; }
+.btn-icon:hover { background: #e5e7eb; }
+.btn-icon.danger:hover { background: #fee2e2; color: #dc2626; }
+.btn-full { width: 100%; justify-content: center; }
+.btn-green { background: #16a34a; color: white; }
+.btn-green:hover { background: #15803d; }
+.fab { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #1F4E79, #2d6ba3); color: white; font-size: 24px; box-shadow: 0 4px 12px rgba(0,0,0,.25); z-index: 20; display: flex; align-items: center; justify-content: center; transition: transform .2s ease, box-shadow .2s ease; animation: popIn .3s ease both; }
+.fab:hover { transform: scale(1.08); box-shadow: 0 6px 18px rgba(31,78,121,.4); }
+
+/* Search */
+.search { position: relative; margin-bottom: 12px; }
+.search input { padding-left: 34px; }
+.search::before { content: "🔍"; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 14px; }
+
+/* Modal */
+.modal-bg { position: fixed; inset: 0; background: rgba(15,23,42,.55); backdrop-filter: blur(2px); display: flex; align-items: flex-end; justify-content: center; z-index: 100; padding: 0; animation: fadeIn .2s ease both; }
+@media (min-width: 768px) { .modal-bg { align-items: center; padding: 20px; } }
+.modal { background: white; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; border-radius: 12px 12px 0 0; padding: 20px; animation: slideUp .3s cubic-bezier(.2,.8,.3,1) both; }
+@media (min-width: 768px) { .modal { border-radius: 12px; } }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; }
+.modal-header h2 { font-size: 17px; color: #1F4E79; }
+.modal-close { font-size: 22px; color: #6b7280; padding: 0 8px; }
+
+/* Toggle */
+.toggle-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
+.toggle-row input { width: auto; }
+
+/* Empty state */
+.empty { text-align: center; padding: 40px 20px; color: #6b7280; }
+.empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+/* Line items */
+.li-header, .li-row { display: grid; grid-template-columns: 40px 1fr 60px 80px 80px 28px; gap: 6px; align-items: center; padding: 6px 0; font-size: 12px; }
+.li-header { font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; }
+.li-row input { padding: 4px 6px; font-size: 12px; }
+.remove-btn { background: #fee2e2; color: #dc2626; border-radius: 4px; padding: 4px; font-weight: bold; }
+
+/* Totals */
+.totals { background: #f9fafb; padding: 12px; border-radius: 6px; }
+.totals-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+.totals-row.grand { font-weight: 700; font-size: 15px; border-top: 2px solid #1F4E79; padding-top: 8px; margin-top: 8px; color: #1F4E79; }
+
+/* Toast */
+#toast-ct { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.toast { background: #111827; color: white; padding: 10px 18px; border-radius: 24px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.25); animation: toastIn .3s ease both; display: flex; align-items: center; gap: 8px; }
+.toast.success { background: #15803d; }
+.toast.error { background: #b91c1c; }
+
+/* Preview: A4 sized (210mm x 297mm ≈ 794 x 1123 px @96dpi) */
+.preview-wrap { background: #4b5563; padding: 16px; overflow-x: auto; border-radius: 8px; }
+.preview { background: white; width: 794px; min-height: 1123px; margin: 0 auto; padding: 40px 38px; font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif; font-size: 11px; color: #000; box-shadow: 0 8px 30px rgba(0,0,0,.35); display: flex; flex-direction: column; }
+.preview .pv-footer { margin-top: auto; }
+.pv-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.pv-logo-area { display: flex; align-items: center; gap: 10px; }
+.pv-logo { width: 50px; height: 50px; object-fit: contain; }
+.pv-bizname { font-size: 18px; font-weight: bold; color: #1F4E79; }
+.pv-title { font-size: 22px; font-weight: bold; color: #1F4E79; }
+.pv-meta { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 10px; }
+.pv-meta-r { text-align: right; }
+.pv-meta table { border-collapse: collapse; }
+.pv-meta td { padding: 2px 8px; }
+.pv-meta td:first-child { font-weight: bold; }
+.pv-meta td:last-child { background: #D9E2F3; min-width: 80px; }
+.pv-section-hdr { background: #1F4E79; color: white; padding: 3px 6px; font-weight: bold; font-size: 10px; margin: 8px 0 0 0; }
+.pv-3col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; margin-bottom: 8px; border-left: 1px solid #ccc; }
+.pv-3col > div { padding: 6px; border-right: 1px solid #ccc; border-bottom: 1px solid #ccc; font-size: 10px; }
+.pv-3col > div > div { margin-bottom: 2px; }
+.pv-main { display: grid; grid-template-columns: 1fr 240px; gap: 0; }
+.pv-items { border: 1px solid #1F4E79; border-right: none; }
+.pv-items table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.pv-items th { background: #1F4E79; color: white; padding: 4px; text-align: left; border: 1px solid #1F4E79; font-size: 10px; }
+.pv-items td { padding: 4px; border: 1px solid #ccc; }
+.pv-items .num { text-align: right; }
+.pv-totals { border: 1px solid #1F4E79; }
+.pv-totals table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.pv-totals td { padding: 4px 6px; border-bottom: 1px solid #ccc; }
+.pv-totals td:first-child { font-weight: bold; background: #f3f4f6; }
+.pv-totals td:last-child { text-align: right; }
+.pv-totals tr.grand td { background: #D9E2F3; font-weight: bold; font-size: 12px; }
+.pv-terms { border: 1px solid #1F4E79; padding: 0; margin-top: 4px; }
+.pv-terms-hdr { background: #1F4E79; color: white; padding: 3px 6px; font-weight: bold; font-size: 10px; }
+.pv-terms-body { padding: 6px; font-size: 10px; }
+.pv-terms-body div { margin-bottom: 3px; }
+.pv-addl { margin-top: 10px; border: 1px solid #999; }
+.pv-addl-hdr { background: #d1d5db; padding: 3px 6px; font-weight: bold; font-size: 10px; }
+.pv-addl-body { padding: 6px; font-size: 10px; }
+.pv-addl-body table { border-collapse: collapse; }
+.pv-addl-body td { padding: 2px 8px 2px 0; }
+.pv-addl-body td:first-child { font-weight: 600; min-width: 140px; }
+.pv-footer { margin-top: 20px; font-size: 10px; }
+.pv-sig { margin-top: 30px; }
+.pv-sigline { border-top: 1px solid #000; width: 200px; padding-top: 3px; }
+.pv-sig-img { max-height: 40px; margin-bottom: 4px; }
+
+.action-bar { display: flex; gap: 8px; padding: 12px; background: white; border-top: 1px solid #e5e7eb; position: sticky; bottom: 0; }
+.action-bar button { flex: 1; }
+
+/* Onboarding */
+.onboard { max-width: 480px; margin: 40px auto; padding: 24px; background: white; border-radius: 12px; }
+.onboard h1 { color: #1F4E79; margin-bottom: 8px; }
+.onboard p { color: #6b7280; margin-bottom: 20px; }
+
+.status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; margin-left: 6px; }
+.st-Draft { background: #fef3c7; color: #92400e; }
+.st-Sent { background: #dbeafe; color: #1e40af; }
+.st-Confirmed { background: #d1fae5; color: #065f46; }
+.st-Cancelled { background: #fee2e2; color: #991b1b; }
+
+/* Print */
+@media print {
+  .topbar, .tabs, .action-bar, .fab, .no-print { display: none !important; }
+  body { background: white; }
+  .preview-wrap { background: white; padding: 0; }
+  .preview { width: 100%; min-height: 0; box-shadow: none; padding: 0; }
+  .content { padding: 0; max-width: none; }
+  @page { size: A4; margin: 12mm; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ==================== STORAGE ====================
+const DB_KEY = "pipomaker_v1";
+const loadDB = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(DB_KEY));
+    if (stored) return stored;
+  } catch (e) { /* fall through to cookie backup */ }
+  const fromCookie = loadCookieBackup();
+  return fromCookie || defaultDB();
+};
+const saveDB = () => {
+  const json = JSON.stringify(db);
+  try { localStorage.setItem(DB_KEY, json); } catch (e) { /* storage full/blocked */ }
+  saveCookieBackup();
+};
+
+// Cookie backup: mirrors the database (minus large images) into chunked cookies
+// so data survives even if localStorage is cleared or unavailable offline.
+const COOKIE_KEY = "pipomaker_ck";
+const COOKIE_CHUNK = 3800;
+const COOKIE_MAX_CHUNKS = 20;
+const setCookie = (name, value, days = 365) => {
+  const exp = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${value}; expires=${exp}; path=/; SameSite=Lax`;
+};
+const getCookie = (name) => {
+  const m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+  return m ? m[1] : null;
+};
+const saveCookieBackup = () => {
+  try {
+    const slim = JSON.parse(JSON.stringify(db));
+    slim.businesses.forEach(b => { delete b.logo; delete b.signature; });
+    const enc = encodeURIComponent(JSON.stringify(slim));
+    const chunks = Math.ceil(enc.length / COOKIE_CHUNK);
+    if (chunks > COOKIE_MAX_CHUNKS) return; // too big for cookies; localStorage remains primary
+    for (let i = 0; i < chunks; i++) setCookie(`${COOKIE_KEY}_${i}`, enc.slice(i * COOKIE_CHUNK, (i + 1) * COOKIE_CHUNK));
+    setCookie(`${COOKIE_KEY}_n`, String(chunks));
+    for (let i = chunks; i < COOKIE_MAX_CHUNKS; i++) {
+      if (getCookie(`${COOKIE_KEY}_${i}`) !== null) setCookie(`${COOKIE_KEY}_${i}`, "", -1);
+    }
+  } catch (e) { /* ignore cookie failures */ }
+};
+const loadCookieBackup = () => {
+  try {
+    const n = parseInt(getCookie(`${COOKIE_KEY}_n`));
+    if (!n) return null;
+    let enc = "";
+    for (let i = 0; i < n; i++) {
+      const c = getCookie(`${COOKIE_KEY}_${i}`);
+      if (c === null) return null;
+      enc += c;
+    }
+    return JSON.parse(decodeURIComponent(enc));
+  } catch (e) { return null; }
+};
+const defaultDB = () => ({
+  businesses: [],
+  activeBusinessId: null,
+  customers: [],
+  products: [],
+  documents: [],
+  nextIds: { biz: 1, cust: 1001, prod: 1, doc: 1 }
+});
+let db = loadDB();
+
+const uid = (kind) => { const id = db.nextIds[kind]++; saveDB(); return id; };
+
+// ==================== HELPERS ====================
+const $ = (sel) => document.querySelector(sel);
+const el = (tag, props = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") e.className = v;
+    else if (k === "style") Object.assign(e.style, v);
+    else if (k === "value") e.value = v; // property, not attribute, so textareas get their content
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === "html") e.innerHTML = v;
+    else if (v !== null && v !== undefined) e.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) {
+    if (k == null || k === false) continue;
+    e.appendChild(typeof k === "string" ? document.createTextNode(k) : k);
+  }
+  return e;
+};
+const fmt = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const today = () => new Date().toISOString().slice(0, 10);
+const addDays = (dateStr, n) => { const d = new Date(dateStr); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const activeBiz = () => db.businesses.find(b => b.id === db.activeBusinessId);
+const bizCustomers = () => db.customers.filter(c => c.businessId === db.activeBusinessId);
+const bizProducts = () => db.products.filter(p => p.businessId === db.activeBusinessId);
+const bizDocs = () => db.documents.filter(d => d.businessId === db.activeBusinessId);
+
+const formatDocNumber = (fmtStr, seq, date) => {
+  const d = new Date(date || today());
+  return fmtStr
+    .replace('{YYYY}', d.getFullYear())
+    .replace('{YY}', String(d.getFullYear()).slice(-2))
+    .replace('{MM}', String(d.getMonth() + 1).padStart(2, '0'))
+    .replace('{DD}', String(d.getDate()).padStart(2, '0'))
+    .replace('{####}', String(seq).padStart(4, '0'))
+    .replace('{###}', String(seq).padStart(3, '0'))
+    .replace('{BIZ}', activeBiz()?.shortCode || '');
+};
+
+// ==================== TOAST ====================
+const toast = (msg, kind = "") => {
+  let ct = $("#toast-ct");
+  if (!ct) { ct = el("div", { id: "toast-ct" }); document.body.appendChild(ct); }
+  const t = el("div", { class: "toast " + kind }, msg);
+  ct.appendChild(t);
+  setTimeout(() => { t.style.transition = "opacity .3s ease"; t.style.opacity = "0"; setTimeout(() => t.remove(), 300); }, 2200);
+};
+
+// ==================== APP STATE ====================
+let currentTab = "dashboard";
+let currentModal = null;
+let docBuilder = null; // holds in-progress document
+
+// ==================== RENDER ROOT ====================
+const render = () => {
+  const root = $("#app");
+  root.innerHTML = "";
+
+  if (db.businesses.length === 0) {
+    root.appendChild(renderOnboard());
+    return;
+  }
+  if (!db.activeBusinessId) {
+    db.activeBusinessId = db.businesses[0].id;
+    saveDB();
+  }
+
+  const app = el("div", { class: "app" });
+  app.appendChild(renderTopbar());
+  app.appendChild(renderTabs());
+  const content = el("div", { class: "content" });
+  if (currentTab === "dashboard") content.appendChild(renderDashboard());
+  else if (currentTab === "customers") content.appendChild(renderCustomers());
+  else if (currentTab === "products") content.appendChild(renderProducts());
+  else if (currentTab === "documents") content.appendChild(renderDocuments());
+  else if (currentTab === "settings") content.appendChild(renderSettings());
+  app.appendChild(content);
+  root.appendChild(app);
+
+  if (currentModal) root.appendChild(currentModal);
+};
+
+// ==================== ONBOARDING ====================
+const renderOnboard = () => {
+  const wrap = el("div", { class: "onboard" });
+  wrap.appendChild(el("h1", {}, "Welcome to PI & PO Maker"));
+  wrap.appendChild(el("p", {}, "Let's set up your first business."));
+  const form = renderBusinessForm(null, (biz) => {
+    biz.id = uid("biz");
+    biz.nextPi = biz.nextPi || 1;
+    biz.nextPo = biz.nextPo || 1;
+    db.businesses.push(biz);
+    db.activeBusinessId = biz.id;
+    saveDB();
+    render();
+  });
+  wrap.appendChild(form);
+  return wrap;
+};
+
+// ==================== TOPBAR & TABS ====================
+const renderTopbar = () => {
+  const bar = el("div", { class: "topbar" });
+  bar.appendChild(el("h1", {}, "PI & PO Maker"));
+  const sw = el("select", { class: "biz-switcher", onchange: (e) => {
+    if (e.target.value === "__new__") { openBusinessModal(); return; }
+    db.activeBusinessId = parseInt(e.target.value);
+    saveDB();
+    render();
+  }});
+  db.businesses.forEach(b => {
+    const opt = el("option", { value: b.id }, b.name);
+    if (b.id === db.activeBusinessId) opt.selected = true;
+    sw.appendChild(opt);
+  });
+  sw.appendChild(el("option", { value: "__new__" }, "+ Add business…"));
+  bar.appendChild(sw);
+  return bar;
+};
+
+const renderTabs = () => {
+  const tabs = el("div", { class: "tabs" });
+  const items = [
+    ["dashboard", "🏠 Home"],
+    ["customers", "👥 Customers"],
+    ["products", "📦 Products"],
+    ["documents", "📄 Documents"],
+    ["settings", "⚙️ Settings"],
+  ];
+  items.forEach(([k, label]) => {
+    const t = el("button", {
+      class: "tab" + (currentTab === k ? " active" : ""),
+      onclick: () => { currentTab = k; render(); }
+    }, label);
+    tabs.appendChild(t);
+  });
+  return tabs;
+};
+
+// ==================== DASHBOARD ====================
+const renderDashboard = () => {
+  const wrap = el("div");
+  const biz = activeBiz();
+  const wel = el("div", { class: "card" });
+  wel.appendChild(el("div", { style: { fontSize: "13px", color: "#6b7280" } }, "Active business"));
+  wel.appendChild(el("div", { style: { fontSize: "17px", fontWeight: "600", color: "#1F4E79" } }, biz.name));
+  wrap.appendChild(wel);
+
+  // Quick actions
+  const qa = el("div", { class: "card" });
+  qa.appendChild(el("div", { class: "card-title" }, "Quick actions"));
+  const row = el("div", { class: "row" });
+  const npi = el("button", { class: "btn btn-primary btn-full", onclick: () => startNewDoc("PI") }, "+ New PI");
+  const npo = el("button", { class: "btn btn-secondary btn-full", onclick: () => startNewDoc("PO") }, "+ New PO");
+  row.appendChild(npi);
+  row.appendChild(npo);
+  qa.appendChild(row);
+  wrap.appendChild(qa);
+
+  // Stats
+  const stats = el("div", { class: "card" });
+  stats.appendChild(el("div", { class: "card-title" }, "This business"));
+  const s = el("div", { class: "row" });
+  const stat = (label, val) => {
+    const c = el("div", { style: { textAlign: "center", padding: "12px", background: "#f9fafb", borderRadius: "8px" } });
+    c.appendChild(el("div", { style: { fontSize: "22px", fontWeight: "700", color: "#1F4E79" } }, String(val)));
+    c.appendChild(el("div", { style: { fontSize: "11px", color: "#6b7280", marginTop: "4px" } }, label));
+    return c;
+  };
+  s.appendChild(stat("Customers", bizCustomers().length));
+  s.appendChild(stat("Products", bizProducts().length));
+  s.appendChild(stat("Documents", bizDocs().length));
+  stats.appendChild(s);
+  wrap.appendChild(stats);
+
+  // Recent docs
+  const recent = bizDocs().slice(-5).reverse();
+  if (recent.length > 0) {
+    const rc = el("div", { class: "card" });
+    rc.appendChild(el("div", { class: "card-title" }, "Recent documents"));
+    recent.forEach(d => rc.appendChild(renderDocListItem(d)));
+    wrap.appendChild(rc);
+  }
+  return wrap;
+};
+
+// ==================== CUSTOMERS ====================
+const renderCustomers = () => {
+  const wrap = el("div");
+  const search = el("div", { class: "search" });
+  const searchInput = el("input", { placeholder: "Search customers...", oninput: (e) => filterList("cust", e.target.value) });
+  search.appendChild(searchInput);
+  wrap.appendChild(search);
+
+  const listCt = el("div", { id: "cust-list" });
+  const list = bizCustomers();
+  if (list.length === 0) {
+    listCt.appendChild(emptyState("👥", "No customers yet", "Add your first customer"));
+  } else {
+    list.forEach(c => listCt.appendChild(renderCustomerItem(c)));
+  }
+  wrap.appendChild(listCt);
+
+  const fab = el("button", { class: "fab", onclick: () => openCustomerModal(null) }, "+");
+  wrap.appendChild(fab);
+  return wrap;
+};
+
+const renderCustomerItem = (c) => {
+  const item = el("div", { class: "list-item", "data-search": (c.contactName + " " + c.companyName + " " + c.phone).toLowerCase() });
+  const info = el("div", { class: "info" });
+  info.appendChild(el("div", { class: "name" }, c.companyName));
+  info.appendChild(el("div", { class: "sub" }, `${c.contactName} • ${c.phone}`));
+  item.appendChild(info);
+  const actions = el("div", { class: "actions" });
+  actions.appendChild(el("button", { class: "btn-icon", onclick: () => openCustomerModal(c) }, "✏️"));
+  actions.appendChild(el("button", { class: "btn-icon danger", onclick: () => {
+    if (confirm(`Delete customer ${c.companyName}?`)) {
+      db.customers = db.customers.filter(x => x.id !== c.id); saveDB(); render();
+    }
+  }}, "🗑️"));
+  item.appendChild(actions);
+  return item;
+};
+
+const filterList = (kind, q) => {
+  q = q.toLowerCase();
+  const items = document.querySelectorAll(`#${kind}-list .list-item`);
+  items.forEach(i => i.style.display = i.dataset.search.includes(q) ? "" : "none");
+};
+
+// ==================== PRODUCTS ====================
+const renderProducts = () => {
+  const wrap = el("div");
+  const search = el("div", { class: "search" });
+  search.appendChild(el("input", { placeholder: "Search products...", oninput: (e) => filterList("prod", e.target.value) }));
+  wrap.appendChild(search);
+
+  const listCt = el("div", { id: "prod-list" });
+  const list = bizProducts();
+  if (list.length === 0) {
+    listCt.appendChild(emptyState("📦", "No products yet", "Add your first product"));
+  } else {
+    list.forEach(p => listCt.appendChild(renderProductItem(p)));
+  }
+  wrap.appendChild(listCt);
+
+  const fab = el("button", { class: "fab", onclick: () => openProductModal(null) }, "+");
+  wrap.appendChild(fab);
+  return wrap;
+};
+
+const renderProductItem = (p) => {
+  const item = el("div", { class: "list-item", "data-search": (p.description + " " + p.partNumber).toLowerCase() });
+  const info = el("div", { class: "info" });
+  info.appendChild(el("div", { class: "name" }, p.description));
+  const wt = p.weight ? ` • ${p.weight}kg/${p.unit}` : "";
+  info.appendChild(el("div", { class: "sub" }, `${activeBiz().currency || "NPR"} ${fmt(p.rate)}/${p.unit}${wt}${p.taxable ? " • Taxable" : ""}`));
+  item.appendChild(info);
+  const actions = el("div", { class: "actions" });
+  actions.appendChild(el("button", { class: "btn-icon", onclick: () => openProductModal(p) }, "✏️"));
+  actions.appendChild(el("button", { class: "btn-icon danger", onclick: () => {
+    if (confirm(`Delete ${p.description}?`)) {
+      db.products = db.products.filter(x => x.id !== p.id); saveDB(); render();
+    }
+  }}, "🗑️"));
+  item.appendChild(actions);
+  return item;
+};
+
+// ==================== DOCUMENTS ====================
+const renderDocuments = () => {
+  const wrap = el("div");
+  const search = el("div", { class: "search" });
+  search.appendChild(el("input", { placeholder: "Search documents...", oninput: (e) => filterList("doc", e.target.value) }));
+  wrap.appendChild(search);
+
+  const filterRow = el("div", { class: "row", style: { marginBottom: "12px" } });
+  const typeF = el("select", { onchange: (e) => { render(); } });
+  ["All", "PI", "PO"].forEach(t => typeF.appendChild(el("option", { value: t }, t)));
+  filterRow.appendChild(typeF);
+  wrap.appendChild(filterRow);
+
+  const listCt = el("div", { id: "doc-list" });
+  const list = bizDocs().slice().reverse();
+  if (list.length === 0) {
+    listCt.appendChild(emptyState("📄", "No documents yet", "Create your first PI or PO"));
+  } else {
+    list.forEach(d => listCt.appendChild(renderDocListItem(d)));
+  }
+  wrap.appendChild(listCt);
+
+  const fabRow = el("div", { class: "row", style: { position: "fixed", bottom: "20px", right: "20px", zIndex: 20 }});
+  const fab1 = el("button", { class: "btn btn-primary", style: { padding: "12px 16px", borderRadius: "30px", boxShadow: "0 4px 12px rgba(0,0,0,.2)" }, onclick: () => startNewDoc("PI") }, "+ PI");
+  const fab2 = el("button", { class: "btn btn-secondary", style: { padding: "12px 16px", borderRadius: "30px", boxShadow: "0 4px 12px rgba(0,0,0,.2)" }, onclick: () => startNewDoc("PO") }, "+ PO");
+  fabRow.appendChild(fab1);
+  fabRow.appendChild(fab2);
+  wrap.appendChild(fabRow);
+  return wrap;
+};
+
+const renderDocListItem = (d) => {
+  const cust = db.customers.find(c => c.id === d.customerId);
+  const item = el("div", { class: "list-item", "data-search": (d.number + " " + (cust?.companyName || "")).toLowerCase() });
+  const info = el("div", { class: "info", onclick: () => openDocPreview(d), style: { cursor: "pointer" } });
+  const name = el("div", { class: "name" });
+  name.appendChild(document.createTextNode(`${d.type} #${d.number}`));
+  const badge = el("span", { class: `status-badge st-${d.status}` }, d.status);
+  name.appendChild(badge);
+  info.appendChild(name);
+  info.appendChild(el("div", { class: "sub" }, `${cust?.companyName || "—"} • ${d.date} • ${d.currency} ${fmt(d.totals?.total || 0)}`));
+  item.appendChild(info);
+  const actions = el("div", { class: "actions" });
+  actions.appendChild(el("button", { class: "btn-icon", onclick: () => editDoc(d) }, "✏️"));
+  actions.appendChild(el("button", { class: "btn-icon danger", onclick: () => {
+    if (confirm(`Delete ${d.type} #${d.number}?`)) {
+      db.documents = db.documents.filter(x => x.id !== d.id); saveDB(); render();
+    }
+  }}, "🗑️"));
+  item.appendChild(actions);
+  return item;
+};
+
+// ==================== SETTINGS ====================
+const renderSettings = () => {
+  const wrap = el("div");
+  const biz = activeBiz();
+
+  const bc = el("div", { class: "card" });
+  bc.appendChild(el("div", { class: "card-title" }, "Business profile"));
+  bc.appendChild(renderBusinessForm(biz, (updated) => {
+    Object.assign(biz, updated); saveDB();
+    toast("Business profile saved", "success");
+    render();
+  }));
+  wrap.appendChild(bc);
+
+  const dc = el("div", { class: "card" });
+  dc.appendChild(el("div", { class: "card-title" }, "Data"));
+  const bk = el("button", { class: "btn btn-secondary btn-full", style: { marginBottom: "8px" }, onclick: exportBackup }, "📥 Export backup (JSON)");
+  const rs = el("button", { class: "btn btn-secondary btn-full", style: { marginBottom: "8px" }, onclick: importBackup }, "📤 Import backup (JSON)");
+  const dl = el("button", { class: "btn btn-danger btn-full", onclick: () => {
+    if (confirm(`DELETE business "${biz.name}" and all its data? This cannot be undone.`)) {
+      db.customers = db.customers.filter(c => c.businessId !== biz.id);
+      db.products = db.products.filter(p => p.businessId !== biz.id);
+      db.documents = db.documents.filter(d => d.businessId !== biz.id);
+      db.businesses = db.businesses.filter(b => b.id !== biz.id);
+      db.activeBusinessId = db.businesses[0]?.id || null;
+      saveDB(); render();
+    }
+  }}, "🗑️ Delete this business");
+  dc.appendChild(bk); dc.appendChild(rs); dc.appendChild(dl);
+  wrap.appendChild(dc);
+
+  return wrap;
+};
+
+// ==================== FORMS ====================
+const inputField = (label, key, obj, opts = {}) => {
+  const f = el("div", { class: "field" });
+  f.appendChild(el("label", {}, label));
+  const inp = el(opts.textarea ? "textarea" : "input", {
+    type: opts.type || "text",
+    value: obj[key] ?? "",
+    placeholder: opts.placeholder || "",
+    oninput: (e) => obj[key] = opts.type === "number" ? parseFloat(e.target.value) || 0 : e.target.value,
+  });
+  if (opts.rows) inp.rows = opts.rows;
+  f.appendChild(inp);
+  if (opts.hint) f.appendChild(el("div", { style: { fontSize: "11px", color: "#6b7280", marginTop: "4px" } }, opts.hint));
+  return f;
+};
+
+const selectField = (label, key, obj, options) => {
+  const f = el("div", { class: "field" });
+  f.appendChild(el("label", {}, label));
+  const s = el("select", { onchange: (e) => obj[key] = e.target.value });
+  options.forEach(o => {
+    const opt = el("option", { value: o }, o);
+    if (obj[key] === o) opt.selected = true;
+    s.appendChild(opt);
+  });
+  if (!obj[key]) obj[key] = options[0];
+  f.appendChild(s);
+  return f;
+};
+
+const checkboxField = (label, key, obj, onChange) => {
+  const f = el("div", { class: "toggle-row" });
+  const cb = el("input", { type: "checkbox", onchange: (e) => { obj[key] = e.target.checked; if (onChange) onChange(); } });
+  if (obj[key]) cb.checked = true;
+  f.appendChild(cb);
+  f.appendChild(el("label", { style: { marginBottom: 0 } }, label));
+  return f;
+};
+
+const renderBusinessForm = (existing, onSave) => {
+  const data = existing ? { ...existing } : {
+    name: "", address1: "", address2: "", phone: "", pan: "", website: "", email: "",
+    signatory: "", logo: "", signature: "",
+    piFormat: "{YYYY}{####}", poFormat: "PO-{YYYY}-{####}",
+    nextPi: 1, nextPo: 1, currency: "NPR", taxRate: 13, terms: "1. Payment Terms: 20% advance, 80% after production.\n2. The above rates include VAT and discount.",
+    shortCode: "", bank: ""
+  };
+  const wrap = el("div");
+  wrap.appendChild(inputField("Business Name *", "name", data));
+  wrap.appendChild(el("div", { class: "row" }, [
+    inputField("Address Line 1", "address1", data),
+    inputField("Address Line 2", "address2", data),
+  ]));
+  wrap.appendChild(el("div", { class: "row" }, [
+    inputField("Phone", "phone", data),
+    inputField("PAN", "pan", data),
+    inputField("Website", "website", data),
+  ]));
+  wrap.appendChild(el("div", { class: "row" }, [
+    inputField("Email", "email", data),
+    inputField("Authorized Signatory", "signatory", data),
+    inputField("Short Code", "shortCode", data, { hint: "For document numbers, e.g., DPI" }),
+  ]));
+
+  // Logo upload
+  const logoField = el("div", { class: "field" });
+  logoField.appendChild(el("label", {}, "Logo (image)"));
+  const logoInp = el("input", { type: "file", accept: "image/*", onchange: (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader(); r.onload = () => { data.logo = r.result; logoPrev.src = r.result; logoPrev.style.display = "block"; }; r.readAsDataURL(f);
+  }});
+  const logoPrev = el("img", { style: { maxHeight: "60px", marginTop: "6px", display: data.logo ? "block" : "none" }, src: data.logo || "" });
+  logoField.appendChild(logoInp);
+  logoField.appendChild(logoPrev);
+  wrap.appendChild(logoField);
+
+  // Signature upload
+  const sigField = el("div", { class: "field" });
+  sigField.appendChild(el("label", {}, "Signature (image, optional)"));
+  const sigInp = el("input", { type: "file", accept: "image/*", onchange: (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader(); r.onload = () => { data.signature = r.result; sigPrev.src = r.result; sigPrev.style.display = "block"; }; r.readAsDataURL(f);
+  }});
+  const sigPrev = el("img", { style: { maxHeight: "50px", marginTop: "6px", display: data.signature ? "block" : "none" }, src: data.signature || "" });
+  sigField.appendChild(sigInp);
+  sigField.appendChild(sigPrev);
+  wrap.appendChild(sigField);
+
+  wrap.appendChild(el("div", { class: "row" }, [
+    selectField("Currency", "currency", data, ["NPR", "USD", "INR", "EUR"]),
+    inputField("Default Tax Rate %", "taxRate", data, { type: "number" }),
+  ]));
+  wrap.appendChild(el("div", { class: "row" }, [
+    inputField("PI Number Format", "piFormat", data, { hint: "Tokens: {YYYY} {YY} {MM} {####} {BIZ}" }),
+    inputField("PO Number Format", "poFormat", data, { hint: "Tokens: {YYYY} {YY} {MM} {####} {BIZ}" }),
+  ]));
+  wrap.appendChild(el("div", { class: "row" }, [
+    inputField("Next PI Number", "nextPi", data, { type: "number" }),
+    inputField("Next PO Number", "nextPo", data, { type: "number" }),
+  ]));
+  wrap.appendChild(inputField("Default Terms of Sale", "terms", data, { textarea: true, rows: 3 }));
+  wrap.appendChild(inputField("Bank Details (optional)", "bank", data, { textarea: true, rows: 2 }));
+
+  const btn = el("button", { class: "btn btn-primary btn-full", style: { marginTop: "12px" }, onclick: () => {
+    if (!data.name.trim()) { toast("Business name required", "error"); return; }
+    onSave(data);
+  }}, existing ? "Save changes" : "Create business");
+  wrap.appendChild(btn);
+  return wrap;
+};
+
+// ==================== MODALS ====================
+const openModal = (title, contentEl) => {
+  const bg = el("div", { class: "modal-bg", onclick: (e) => { if (e.target === bg) closeModal(); } });
+  const m = el("div", { class: "modal" });
+  const h = el("div", { class: "modal-header" });
+  h.appendChild(el("h2", {}, title));
+  h.appendChild(el("button", { class: "modal-close", onclick: closeModal }, "×"));
+  m.appendChild(h);
+  m.appendChild(contentEl);
+  bg.appendChild(m);
+  currentModal = bg;
+  render();
+};
+const closeModal = () => { currentModal = null; render(); };
+
+const openBusinessModal = () => {
+  const form = renderBusinessForm(null, (biz) => {
+    biz.id = uid("biz"); biz.nextPi = biz.nextPi || 1; biz.nextPo = biz.nextPo || 1;
+    db.businesses.push(biz); db.activeBusinessId = biz.id; saveDB();
+    closeModal();
+  });
+  openModal("New business", form);
+};
+
+const openCustomerModal = (existing) => {
+  const data = existing ? { ...existing } : {
+    contactName: "", companyName: "", phone: "", addr1: "", addr2: "",
+    regNo: "", shipAddr1: "", shipAddr2: "", email: "", eximCode: "", country: "NEPAL",
+    sameAsBill: true, businessId: db.activeBusinessId
+  };
+  const wrap = el("div");
+  wrap.appendChild(el("div", { style: { fontWeight: 600, marginBottom: 8, color: "#1F4E79" } }, "Bill-to (Customer)"));
+  wrap.appendChild(el("div", { class: "row" }, [
+    inputField("Contact Name *", "contactName", data),
+    inputField("Company Name *", "companyName", data),
+  ]));
+  wrap.appendChild(inputField("Phone (for WhatsApp) *", "phone", data, { hint: "Include country code, e.g., 9779851158034" }));
+  wrap.appendChild(el("div", { class: "row" }, [
+    inputField("Address Line 1", "addr1", data),
+    inputField("Address Line 2", "addr2", data),
+  ]));
+
+  const shipWrap = el("div");
+  const rerenderShip = () => {
+    shipWrap.innerHTML = "";
+    shipWrap.appendChild(el("div", { style: { fontWeight: 600, marginBottom: 8, marginTop: 12, color: "#1F4E79" } }, "Ship-to"));
+    shipWrap.appendChild(checkboxField("Same as Bill-to", "sameAsBill", data, rerenderShip));
+    if (!data.sameAsBill) {
+      shipWrap.appendChild(inputField("Registration No.", "regNo", data));
+      shipWrap.appendChild(el("div", { class: "row" }, [
+        inputField("Ship Address 1", "shipAddr1", data),
+        inputField("Ship Address 2", "shipAddr2", data),
+      ]));
+    }
+    shipWrap.appendChild(el("div", { class: "row" }, [
+      inputField("Email", "email", data),
+      inputField("Country", "country", data),
+    ]));
+    shipWrap.appendChild(inputField("EXIM Code (export only)", "eximCode", data));
+  };
+  rerenderShip();
+  wrap.appendChild(shipWrap);
+
+  wrap.appendChild(el("button", { class: "btn btn-primary btn-full", style: { marginTop: "12px" }, onclick: () => {
+    if (!data.companyName.trim() || !data.phone.trim()) { toast("Company name and phone required", "error"); return; }
+    if (existing) { Object.assign(existing, data); }
+    else { data.id = uid("cust"); db.customers.push(data); }
+    saveDB(); closeModal();
+  }}, existing ? "Save" : "Add customer"));
+  openModal(existing ? "Edit customer" : "New customer", wrap);
+};
+
+const openProductModal = (existing) => {
+  const data = existing ? { ...existing } : {
+    partNumber: "", description: "", unit: "pcs", rate: 0, weight: 0,
+    taxable: true, hsn: "", notes: "", businessId: db.activeBusinessId
+  };
+  const wrap = el("div");
+  wrap.appendChild(el("div", { class: "row" }, [
+    inputField("Part Number", "partNumber", data),
+    selectField("Unit", "unit", data, ["pcs", "kg", "set", "box", "m", "ft", "litre", "bundle"]),
+  ]));
+  wrap.appendChild(inputField("Description *", "description", data));
+  wrap.appendChild(el("div", { class: "row" }, [
+    inputField("Rate (per unit) *", "rate", data, { type: "number" }),
+    inputField("Weight (kg per unit)", "weight", data, { type: "number", hint: "Used to auto-calc gross weight on docs" }),
+    inputField("HSN Code", "hsn", data),
+  ]));
+  wrap.appendChild(checkboxField("Taxable", "taxable", data));
+  wrap.appendChild(inputField("Notes (internal)", "notes", data, { textarea: true, rows: 2 }));
+  wrap.appendChild(el("button", { class: "btn btn-primary btn-full", style: { marginTop: "12px" }, onclick: () => {
+    if (!data.description.trim()) { toast("Description required", "error"); return; }
+    if (existing) { Object.assign(existing, data); }
+    else { data.id = uid("prod"); db.products.push(data); }
+    saveDB(); closeModal();
+  }}, existing ? "Save" : "Add product"));
+  openModal(existing ? "Edit product" : "New product", wrap);
+};
+
+// ==================== DOCUMENT BUILDER ====================
+const startNewDoc = (type) => {
+  const biz = activeBiz();
+  const seq = type === "PI" ? biz.nextPi : biz.nextPo;
+  const fmt = type === "PI" ? biz.piFormat : biz.poFormat;
+  docBuilder = {
+    type,
+    number: formatDocNumber(fmt, seq, today()),
+    _seq: seq,
+    date: today(),
+    expiryDate: type === "PI" ? addDays(today(), 5) : "",
+    customerId: null,
+    status: "Draft",
+    currency: biz.currency,
+    lineItems: [],
+    totals: { subtotal: 0, taxable: 0, taxRate: biz.taxRate || 0, tax: 0, freight: 0, insurance: 0, legal: 0, inspection: 0, other1: 0, other1Label: "", other2: 0, other2Label: "", total: 0 },
+    terms: biz.terms || "",
+    shipping: { freightType: "land", shipDate: "to be discussed", grossWeight: "", cubicWeight: "", totalPackages: "" },
+    showExport: false,
+    additional: { origin: "NEPAL", embarkation: "", discharge: "", reason: "" },
+    businessId: db.activeBusinessId
+  };
+  openDocBuilder();
+};
+
+const editDoc = (d) => {
+  docBuilder = JSON.parse(JSON.stringify(d));
+  docBuilder._editing = true;
+  openDocBuilder();
+};
+
+const recomputeTotals = () => {
+  const t = docBuilder.totals;
+  t.subtotal = docBuilder.lineItems.reduce((s, li) => s + (li.qty * li.rate), 0);
+  t.taxable = docBuilder.lineItems.filter(li => li.taxable).reduce((s, li) => s + (li.qty * li.rate), 0);
+  t.tax = t.taxable * (t.taxRate / 100);
+  t.total = t.subtotal + t.tax + Number(t.freight || 0) + Number(t.insurance || 0) + Number(t.legal || 0) + Number(t.inspection || 0) + Number(t.other1 || 0) + Number(t.other2 || 0);
+  // Auto gross weight
+  const gw = docBuilder.lineItems.reduce((s, li) => s + (li.qty * (li.weight || 0)), 0);
+  if (gw > 0 && !docBuilder.shipping._userSetWeight) docBuilder.shipping.grossWeight = gw.toFixed(2) + " kg";
+};
+
+const openDocBuilder = () => {
+  recomputeTotals();
+  const wrap = el("div");
+
+  // Header info
+  wrap.appendChild(el("div", { class: "row" }, [
+    inputField("Document #", "number", docBuilder),
+    inputField("Date", "date", docBuilder, { type: "date" }),
+  ]));
+  if (docBuilder.type === "PI") wrap.appendChild(inputField("Expiration Date", "expiryDate", docBuilder, { type: "date" }));
+
+  // Customer
+  const custField = el("div", { class: "field" });
+  custField.appendChild(el("label", {}, docBuilder.type === "PI" ? "Customer *" : "Supplier *"));
+  const custSel = el("select", { onchange: (e) => {
+    if (e.target.value === "__new__") { openCustomerModal(null); return; }
+    docBuilder.customerId = parseInt(e.target.value);
+  }});
+  custSel.appendChild(el("option", { value: "" }, "-- select --"));
+  bizCustomers().forEach(c => {
+    const o = el("option", { value: c.id }, `${c.companyName} (${c.contactName})`);
+    if (docBuilder.customerId === c.id) o.selected = true;
+    custSel.appendChild(o);
+  });
+  custSel.appendChild(el("option", { value: "__new__" }, "+ Add new..."));
+  custField.appendChild(custSel);
+  wrap.appendChild(custField);
+
+  // Shipping
+  const shipCard = el("div", { class: "card", style: { padding: "12px", marginBottom: "12px", background: "#f9fafb" } });
+  shipCard.appendChild(el("div", { style: { fontWeight: 600, marginBottom: 8 } }, "Shipping details"));
+  shipCard.appendChild(el("div", { class: "row" }, [
+    selectField("Freight", "freightType", docBuilder.shipping, ["land", "sea", "air"]),
+    inputField("Ship Date", "shipDate", docBuilder.shipping),
+  ]));
+  const grossField = el("div", { class: "field" });
+  grossField.appendChild(el("label", {}, "Est. Gross Weight (auto)"));
+  const grossInp = el("input", { value: docBuilder.shipping.grossWeight || "", oninput: (e) => { docBuilder.shipping.grossWeight = e.target.value; docBuilder.shipping._userSetWeight = true; }});
+  grossField.appendChild(grossInp);
+  shipCard.appendChild(grossField);
+  shipCard.appendChild(inputField("Total Packages", "totalPackages", docBuilder.shipping));
+  wrap.appendChild(shipCard);
+
+  // Line items
+  const liCard = el("div", { class: "card", style: { padding: "12px" } });
+  liCard.appendChild(el("div", { style: { fontWeight: 600, marginBottom: 8 } }, "Line items"));
+  const liList = el("div", { id: "li-list" });
+  const rerenderLI = () => {
+    liList.innerHTML = "";
+    const hdr = el("div", { class: "li-header" });
+    ["#", "Description", "Unit", "Qty", "Rate", ""].forEach(t => hdr.appendChild(el("div", {}, t)));
+    liList.appendChild(hdr);
+    docBuilder.lineItems.forEach((li, idx) => {
+      const row = el("div", { class: "li-row" });
+      row.appendChild(el("div", {}, String(idx + 1)));
+      row.appendChild(el("input", { value: li.description, oninput: (e) => { li.description = e.target.value; }}));
+      row.appendChild(el("input", { value: li.unit, oninput: (e) => { li.unit = e.target.value; }}));
+      row.appendChild(el("input", { type: "number", value: li.qty, oninput: (e) => { li.qty = parseFloat(e.target.value) || 0; recomputeTotals(); updateTotals(); if (docBuilder.shipping._userSetWeight === false || !docBuilder.shipping._userSetWeight) updateGross(); }}));
+      row.appendChild(el("input", { type: "number", value: li.rate, oninput: (e) => { li.rate = parseFloat(e.target.value) || 0; recomputeTotals(); updateTotals(); }}));
+      row.appendChild(el("button", { class: "remove-btn", onclick: () => { docBuilder.lineItems.splice(idx, 1); recomputeTotals(); rerenderLI(); updateTotals(); updateGross(); }}, "×"));
+      liList.appendChild(row);
+    });
+  };
+  const updateGross = () => {
+    if (!docBuilder.shipping._userSetWeight) {
+      const gw = docBuilder.lineItems.reduce((s, li) => s + (li.qty * (li.weight || 0)), 0);
+      if (gw > 0) { docBuilder.shipping.grossWeight = gw.toFixed(2) + " kg"; grossInp.value = docBuilder.shipping.grossWeight; }
+    }
+  };
+  rerenderLI();
+  liCard.appendChild(liList);
+
+  // Add product
+  const addRow = el("div", { class: "row", style: { marginTop: 8 } });
+  const prodSel = el("select");
+  prodSel.appendChild(el("option", { value: "" }, "-- pick product --"));
+  bizProducts().forEach(p => prodSel.appendChild(el("option", { value: p.id }, `${p.description} (${activeBiz().currency} ${fmt(p.rate)}/${p.unit})`)));
+  addRow.appendChild(prodSel);
+  const addBtn = el("button", { class: "btn btn-primary", onclick: () => {
+    const pid = parseInt(prodSel.value);
+    const p = bizProducts().find(x => x.id === pid);
+    if (!p) return;
+    docBuilder.lineItems.push({
+      partNumber: p.partNumber || String(docBuilder.lineItems.length + 1),
+      description: p.description, unit: p.unit, qty: 1, rate: p.rate, taxable: p.taxable, weight: p.weight || 0
+    });
+    recomputeTotals(); rerenderLI(); updateTotals(); updateGross();
+    prodSel.value = "";
+  }}, "+ Add");
+  addRow.appendChild(addBtn);
+  liCard.appendChild(addRow);
+
+  // Ad-hoc
+  const adhocBtn = el("button", { class: "btn btn-secondary btn-full", style: { marginTop: 6 }, onclick: () => {
+    docBuilder.lineItems.push({ partNumber: String(docBuilder.lineItems.length + 1), description: "", unit: "pcs", qty: 1, rate: 0, taxable: true, weight: 0 });
+    recomputeTotals(); rerenderLI(); updateTotals();
+  }}, "+ Add blank row");
+  liCard.appendChild(adhocBtn);
+  wrap.appendChild(liCard);
+
+  // Totals
+  const totCard = el("div", { class: "card totals" });
+  const totCt = el("div", { id: "tot-ct" });
+  const updateTotals = () => {
+    totCt.innerHTML = "";
+    const t = docBuilder.totals;
+    const rowT = (l, v) => {
+      const r = el("div", { class: "totals-row" });
+      r.appendChild(el("div", {}, l));
+      r.appendChild(el("div", {}, `${docBuilder.currency} ${fmt(v)}`));
+      return r;
+    };
+    const rowInp = (l, k) => {
+      const r = el("div", { class: "totals-row" });
+      r.appendChild(el("div", {}, l));
+      const i = el("input", { type: "number", value: t[k] || 0, style: { width: "100px", textAlign: "right" }, oninput: (e) => { t[k] = parseFloat(e.target.value) || 0; recomputeTotals(); updateTotals(); }});
+      r.appendChild(i);
+      return r;
+    };
+    totCt.appendChild(rowT("Subtotal", t.subtotal));
+    totCt.appendChild(rowT("Taxable", t.taxable));
+    const taxRow = el("div", { class: "totals-row" });
+    taxRow.appendChild(el("div", {}, "Tax rate %"));
+    taxRow.appendChild(el("input", { type: "number", value: t.taxRate, style: { width: "100px", textAlign: "right" }, oninput: (e) => { t.taxRate = parseFloat(e.target.value) || 0; recomputeTotals(); updateTotals(); }}));
+    totCt.appendChild(taxRow);
+    totCt.appendChild(rowT("Tax", t.tax));
+    totCt.appendChild(rowInp("Freight", "freight"));
+    totCt.appendChild(rowInp("Insurance", "insurance"));
+    totCt.appendChild(rowInp("Legal/Consular", "legal"));
+    totCt.appendChild(rowInp("Inspection/Cert.", "inspection"));
+    totCt.appendChild(rowT("TOTAL", t.total));
+    const gr = el("div", { class: "totals-row grand" });
+    gr.appendChild(el("div", {}, "GRAND TOTAL"));
+    gr.appendChild(el("div", {}, `${docBuilder.currency} ${fmt(t.total)}`));
+    totCt.appendChild(gr);
+  };
+  updateTotals();
+  totCard.appendChild(totCt);
+  wrap.appendChild(totCard);
+
+  // Terms
+  wrap.appendChild(inputField("Terms of Sale", "terms", docBuilder, { textarea: true, rows: 3 }));
+
+  // Export block toggle
+  const expWrap = el("div", { class: "card", style: { padding: "12px", background: "#f9fafb" } });
+  expWrap.appendChild(checkboxField("Show Export Details (Country of Origin, Ports, EXIM)", "showExport", docBuilder, () => {
+    expWrap.querySelectorAll(".export-fields").forEach(x => x.style.display = docBuilder.showExport ? "" : "none");
+  }));
+  const expFields = el("div", { class: "export-fields", style: { display: docBuilder.showExport ? "" : "none" } });
+  expFields.appendChild(el("div", { class: "row" }, [
+    inputField("Country of Origin", "origin", docBuilder.additional),
+    inputField("Port of Embarkation", "embarkation", docBuilder.additional),
+    inputField("Port of Discharge", "discharge", docBuilder.additional),
+  ]));
+  expFields.appendChild(inputField("Reason for Export", "reason", docBuilder.additional));
+  expWrap.appendChild(expFields);
+  wrap.appendChild(expWrap);
+
+  // Status
+  const stField = el("div", { class: "field" });
+  stField.appendChild(el("label", {}, "Status"));
+  const stSel = el("select", { onchange: (e) => docBuilder.status = e.target.value });
+  ["Draft", "Sent", "Confirmed", "Cancelled"].forEach(s => {
+    const o = el("option", { value: s }, s);
+    if (docBuilder.status === s) o.selected = true;
+    stSel.appendChild(o);
+  });
+  stField.appendChild(stSel);
+  wrap.appendChild(stField);
+
+  // Action bar
+  const actions = el("div", { class: "action-bar" });
+  actions.appendChild(el("button", { class: "btn btn-secondary", onclick: closeModal }, "Cancel"));
+  actions.appendChild(el("button", { class: "btn btn-primary", onclick: () => {
+    if (!docBuilder.customerId) { toast("Select a customer", "error"); return; }
+    if (docBuilder.lineItems.length === 0) { toast("Add at least one line item", "error"); return; }
+    recomputeTotals();
+    if (docBuilder._editing) {
+      const idx = db.documents.findIndex(d => d.id === docBuilder.id);
+      db.documents[idx] = { ...docBuilder };
+    } else {
+      docBuilder.id = uid("doc");
+      db.documents.push(docBuilder);
+      const biz = activeBiz();
+      if (docBuilder.type === "PI") biz.nextPi = docBuilder._seq + 1;
+      else biz.nextPo = docBuilder._seq + 1;
+    }
+    saveDB();
+    const saved = docBuilder;
+    closeModal();
+    openDocPreview(saved);
+  }}, "Save & Preview"));
+  wrap.appendChild(actions);
+
+  openModal(`${docBuilder._editing ? "Edit" : "New"} ${docBuilder.type === "PI" ? "Proforma Invoice" : "Purchase Order"}`, wrap);
+};
+
+// ==================== PREVIEW ====================
+const openDocPreview = (d) => {
+  const biz = activeBiz();
+  const cust = db.customers.find(c => c.id === d.customerId);
+  const wrap = el("div");
+
+  // Preview
+  const pw = el("div", { class: "preview-wrap" });
+  const pv = renderPreview(d, biz, cust);
+  pw.appendChild(pv);
+  wrap.appendChild(pw);
+
+  // Actions
+  const actions = el("div", { class: "action-bar no-print" });
+  actions.appendChild(el("button", { class: "btn btn-secondary", onclick: () => { closeModal(); editDoc(d); } }, "✏️ Edit"));
+  actions.appendChild(el("button", { class: "btn btn-primary", onclick: () => downloadPDF(pv, d) }, "⬇️ Download PDF"));
+  actions.appendChild(el("button", { class: "btn btn-secondary", onclick: () => window.print() }, "🖨️ Print"));
+  actions.appendChild(el("button", { class: "btn btn-secondary", onclick: () => downloadPNG(pv, d) }, "🖼️ PNG"));
+  actions.appendChild(el("button", { class: "btn btn-green", onclick: () => shareWhatsApp(d, cust, biz) }, "💬 WhatsApp"));
+  wrap.appendChild(actions);
+
+  openModal(`${d.type} #${d.number}`, wrap);
+};
+
+const renderPreview = (d, biz, cust) => {
+  const pv = el("div", { class: "preview", id: "preview-doc" });
+
+  // Header
+  const head = el("div", { class: "pv-head" });
+  const left = el("div", { class: "pv-logo-area" });
+  if (biz.logo) left.appendChild(el("img", { src: biz.logo, class: "pv-logo" }));
+  left.appendChild(el("div", { class: "pv-bizname" }, biz.name));
+  head.appendChild(left);
+  head.appendChild(el("div", { class: "pv-title" }, d.type === "PI" ? "PRO FORMA INVOICE" : "PURCHASE ORDER"));
+  pv.appendChild(head);
+
+  // Meta
+  const meta = el("div", { class: "pv-meta" });
+  const metaL = el("div");
+  if (biz.address1) metaL.appendChild(el("div", {}, biz.address1));
+  if (biz.address2) metaL.appendChild(el("div", {}, biz.address2));
+  if (biz.phone) metaL.appendChild(el("div", {}, "Phone: " + biz.phone));
+  if (biz.pan) metaL.appendChild(el("div", {}, "PAN: " + biz.pan));
+  if (biz.website) metaL.appendChild(el("div", {}, "Website: " + biz.website));
+  meta.appendChild(metaL);
+  const metaR = el("div", { class: "pv-meta-r" });
+  const metaTbl = el("table");
+  const metaRow = (l, v) => { const r = el("tr"); r.appendChild(el("td", {}, l)); r.appendChild(el("td", {}, v || "-")); metaTbl.appendChild(r); };
+  metaRow("Date", d.date);
+  if (d.expiryDate) metaRow("Expiration Date", d.expiryDate);
+  metaRow(d.type === "PI" ? "Invoice #" : "PO #", d.number);
+  if (cust) metaRow(d.type === "PI" ? "Customer ID" : "Supplier ID", String(cust.id));
+  metaR.appendChild(metaTbl);
+  meta.appendChild(metaR);
+  pv.appendChild(meta);
+
+  // 3-column: Customer / Ship To / Shipping Details
+  const c3wrap = el("div");
+  const hdrRow = el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr" } });
+  hdrRow.appendChild(el("div", { class: "pv-section-hdr" }, d.type === "PI" ? "CUSTOMER" : "SUPPLIER"));
+  hdrRow.appendChild(el("div", { class: "pv-section-hdr" }, "SHIP TO"));
+  hdrRow.appendChild(el("div", { class: "pv-section-hdr" }, "SHIPPING DETAILS"));
+  c3wrap.appendChild(hdrRow);
+
+  const c3 = el("div", { class: "pv-3col" });
+  const custBox = el("div");
+  if (cust) {
+    custBox.appendChild(el("div", {}, cust.contactName));
+    custBox.appendChild(el("div", {}, cust.companyName));
+    if (cust.addr1) custBox.appendChild(el("div", {}, cust.addr1));
+    if (cust.addr2) custBox.appendChild(el("div", {}, cust.addr2));
+    custBox.appendChild(el("div", {}, cust.phone));
+  }
+  c3.appendChild(custBox);
+  const shipBox = el("div");
+  if (cust) {
+    if (cust.regNo) shipBox.appendChild(el("div", {}, "REGISTRATION NO. " + cust.regNo));
+    const sa1 = cust.sameAsBill ? cust.addr1 : cust.shipAddr1;
+    const sa2 = cust.sameAsBill ? cust.addr2 : cust.shipAddr2;
+    if (sa1) shipBox.appendChild(el("div", {}, sa1));
+    if (cust.email) shipBox.appendChild(el("div", {}, cust.email));
+    if (sa2) shipBox.appendChild(el("div", {}, sa2));
+    if (cust.eximCode) shipBox.appendChild(el("div", {}, "EXIM CODE - " + cust.eximCode));
+  }
+  c3.appendChild(shipBox);
+  const detailBox = el("div");
+  const dRow = (l, v) => { const r = el("div", { style: { display: "flex", justifyContent: "space-between", gap: 4 } }); r.appendChild(el("span", { style: { fontWeight: 600 } }, l)); r.appendChild(el("span", {}, v || "-")); return r; };
+  detailBox.appendChild(dRow("Freight Type", d.shipping.freightType));
+  detailBox.appendChild(dRow("Est Ship Date", d.shipping.shipDate));
+  detailBox.appendChild(dRow("Est Gross Weight", d.shipping.grossWeight));
+  detailBox.appendChild(dRow("Est Cubic Weight", d.shipping.cubicWeight));
+  detailBox.appendChild(dRow("Total Packages", d.shipping.totalPackages));
+  c3.appendChild(detailBox);
+  c3wrap.appendChild(c3);
+  pv.appendChild(c3wrap);
+
+  // Main: line items + totals
+  const main = el("div", { class: "pv-main" });
+  const items = el("div", { class: "pv-items" });
+  const itbl = el("table");
+  const thead = el("tr");
+  ["PART NUMBER", "UNIT", "DESCRIPTION", "QTY", "UNIT PRICE", "TAX", "TOTAL AMOUNT"].forEach(h => thead.appendChild(el("th", {}, h)));
+  itbl.appendChild(thead);
+  d.lineItems.forEach((li, idx) => {
+    const r = el("tr");
+    r.appendChild(el("td", {}, li.partNumber || String(idx + 1)));
+    r.appendChild(el("td", {}, li.unit));
+    r.appendChild(el("td", {}, li.description));
+    r.appendChild(el("td", { class: "num" }, String(li.qty)));
+    r.appendChild(el("td", { class: "num" }, fmt(li.rate)));
+    r.appendChild(el("td", { style: { textAlign: "center" } }, li.taxable ? "X" : ""));
+    r.appendChild(el("td", { class: "num" }, fmt(li.qty * li.rate)));
+    itbl.appendChild(r);
+  });
+  // pad
+  const padRows = Math.max(0, 14 - d.lineItems.length);
+  for (let i = 0; i < padRows; i++) {
+    const r = el("tr");
+    for (let j = 0; j < 7; j++) r.appendChild(el("td", {}, "\u00A0"));
+    itbl.appendChild(r);
+  }
+  items.appendChild(itbl);
+  main.appendChild(items);
+
+  // Totals column
+  const tots = el("div", { class: "pv-totals" });
+  const ttbl = el("table");
+  const tr = (l, v) => { const r = el("tr"); r.appendChild(el("td", {}, l)); r.appendChild(el("td", {}, v)); ttbl.appendChild(r); };
+  const t = d.totals;
+  tr("Subtotal", fmt(t.subtotal));
+  tr("Taxable", fmt(t.taxable));
+  tr("Tax rate", t.taxRate.toFixed(3) + "%");
+  tr("Tax", t.tax > 0 ? fmt(t.tax) : "-");
+  tr("Freight", t.freight > 0 ? fmt(t.freight) : "-");
+  tr("Insurance", t.insurance > 0 ? fmt(t.insurance) : "-");
+  tr("Legal/Consular", t.legal > 0 ? fmt(t.legal) : "-");
+  tr("Inspection/Cert.", t.inspection > 0 ? fmt(t.inspection) : "-");
+  const grand = el("tr", { class: "grand" });
+  grand.appendChild(el("td", {}, "TOTAL"));
+  grand.appendChild(el("td", {}, fmt(t.total)));
+  ttbl.appendChild(grand);
+  tr("Currency", d.currency);
+  tots.appendChild(ttbl);
+  main.appendChild(tots);
+  pv.appendChild(main);
+
+  // Terms
+  const terms = el("div", { class: "pv-terms" });
+  terms.appendChild(el("div", { class: "pv-terms-hdr" }, "TERMS OF SALE AND OTHER COMMENTS"));
+  const tb = el("div", { class: "pv-terms-body" });
+  (d.terms || "").split("\n").forEach(line => { if (line.trim()) tb.appendChild(el("div", {}, line)); });
+  terms.appendChild(tb);
+  pv.appendChild(terms);
+
+  // Bank details
+  if (biz.bank && biz.bank.trim()) {
+    const bank = el("div", { class: "pv-terms", style: { marginTop: "4px" } });
+    bank.appendChild(el("div", { class: "pv-terms-hdr" }, "BANK DETAILS"));
+    const bb = el("div", { class: "pv-terms-body" });
+    biz.bank.split("\n").forEach(line => { if (line.trim()) bb.appendChild(el("div", {}, line)); });
+    bank.appendChild(bb);
+    pv.appendChild(bank);
+  }
+
+  // Export additional
+  if (d.showExport) {
+    const addl = el("div", { class: "pv-addl" });
+    addl.appendChild(el("div", { class: "pv-addl-hdr" }, "ADDITIONAL DETAILS"));
+    const ab = el("div", { class: "pv-addl-body" });
+    const at = el("table");
+    const ar = (l, v) => { const r = el("tr"); r.appendChild(el("td", {}, l)); r.appendChild(el("td", {}, v || "-")); at.appendChild(r); };
+    ar("Country of Origin", d.additional.origin);
+    ar("Port of Embarkation", d.additional.embarkation);
+    ar("Port of Discharge", d.additional.discharge);
+    ab.appendChild(at);
+    ab.appendChild(el("div", { style: { marginTop: 8 } }, "Reason for Export: " + (d.additional.reason || "-")));
+    addl.appendChild(ab);
+    pv.appendChild(addl);
+  }
+
+  // Footer
+  const foot = el("div", { class: "pv-footer" });
+  foot.appendChild(el("div", { style: { marginTop: 8 } }, "I certify the above to be true and correct to the best of my knowledge."));
+  const sig = el("div", { class: "pv-sig" });
+  if (biz.signature) sig.appendChild(el("img", { src: biz.signature, class: "pv-sig-img" }));
+  sig.appendChild(el("div", { class: "pv-sigline" }));
+  foot.appendChild(sig);
+  const fr = el("div", { style: { marginTop: 4, display: "flex", justifyContent: "space-between" } });
+  const fl = el("div");
+  fl.appendChild(el("div", {}, biz.signatory || ""));
+  fl.appendChild(el("div", {}, biz.name));
+  const fright = el("div", {}, "Date: " + d.date);
+  fr.appendChild(fl);
+  fr.appendChild(fright);
+  foot.appendChild(fr);
+  pv.appendChild(foot);
+
+  return pv;
+};
+
+// ==================== SHARE ====================
+const downloadPDF = async (previewEl, d) => {
+  try {
+    if (typeof html2pdf === "undefined") {
+      toast("Preparing PDF…");
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js");
+    }
+    await html2pdf().set({
+      margin: 0,
+      filename: `${d.type}_${d.number}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, backgroundColor: "#fff", useCORS: true },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] }
+    }).from(previewEl).save();
+    toast("PDF downloaded", "success");
+  } catch (e) {
+    toast("PDF library unavailable offline — using print dialog", "error");
+    window.print();
+  }
+};
+
+const downloadPNG = async (previewEl, d) => {
+  if (typeof html2canvas === "undefined") {
+    await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+  }
+  const canvas = await html2canvas(previewEl, { scale: 2, backgroundColor: "#fff" });
+  const link = document.createElement("a");
+  link.download = `${d.type}_${d.number}.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+};
+
+const loadScript = (src) => new Promise((res, rej) => {
+  const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s);
+});
+
+const shareWhatsApp = (d, cust, biz) => {
+  if (!cust || !cust.phone) { toast("Customer phone missing", "error"); return; }
+  const phone = cust.phone.replace(/[^0-9]/g, "");
+  const msg = `Dear ${cust.contactName || cust.companyName},\n\nPlease find ${d.type} #${d.number} dated ${d.date} for ${d.currency} ${fmt(d.totals.total)}.\n\nThank you,\n${biz.name}`;
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+  window.open(url, "_blank");
+  // update status
+  if (d.status === "Draft") { d.status = "Sent"; saveDB(); }
+};
+
+// ==================== BACKUP ====================
+const exportBackup = () => {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `pipomaker_backup_${today()}.json`;
+  a.click(); URL.revokeObjectURL(url);
+};
+
+const importBackup = () => {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = "application/json";
+  inp.onchange = (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const imported = JSON.parse(r.result);
+        if (!imported.businesses) throw new Error("Invalid backup");
+        if (confirm("Replace all current data with backup? Existing data will be lost.")) {
+          db = imported; saveDB(); render();
+        }
+      } catch (e) { toast("Invalid backup file: " + e.message, "error"); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+};
+
+// ==================== UTILS ====================
+const emptyState = (icon, title, sub) => {
+  const e = el("div", { class: "empty" });
+  e.appendChild(el("div", { class: "empty-icon" }, icon));
+  e.appendChild(el("div", { style: { fontSize: 15, fontWeight: 600 } }, title));
+  e.appendChild(el("div", { style: { fontSize: 13, marginTop: 4 } }, sub));
+  return e;
+};
+
+// ==================== BOOT ====================
+render();
+</script>
+</body>
+</html>
