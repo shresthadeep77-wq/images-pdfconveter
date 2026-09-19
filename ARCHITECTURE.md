@@ -6,6 +6,9 @@ in three sections of the same document. There is no framework, no bundler, no bu
 That constraint is deliberate: the app must keep working when someone double-clicks the
 file. Do not split it into modules — ES modules do not load over `file://`.
 
+`npm run build` does not build the app. It runs the static checks and copies `index.html`
+into a generated `public/`, because static hosts expect a directory to publish.
+
 ```
 index.html
 ├── <head>        Tailwind (play CDN), Font Awesome, Google Fonts, tailwind.config

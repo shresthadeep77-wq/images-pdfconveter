@@ -8,7 +8,8 @@
     "test": "node tests/run-tests.mjs",
     "test:1000": "node tests/run-tests.mjs --sizes 1000",
     "test:headed": "node tests/run-tests.mjs --headed --sizes 100",
-    "build": "node tools/check.mjs"
+    "build": "node tools/build.mjs",
+    "check": "node tools/check.mjs"
   },
   "devDependencies": {
     "playwright-core": "^1.49.0"

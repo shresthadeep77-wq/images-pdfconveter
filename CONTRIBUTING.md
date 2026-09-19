@@ -40,7 +40,7 @@ tools/check.mjs     static checks (there is no bundler)
 ## Before you open a PR
 
 ```bash
-npm run build     # static checks — fast, run after every edit
+npm run check     # static checks — fast, run after every edit
 npm test          # full suite including the 1000-file batch
 ```
 

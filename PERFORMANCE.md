@@ -195,6 +195,7 @@ scrolling a 800-file grid, a broken file fails alone while its 8 neighbours succ
 an aborted run stops early, and the merged PDF is a real PDF.
 
 ```bash
+npm run check                   # static checks
 npm test                        # 100 / 250 / 500 / 1000
 npm run test:1000
 node tests/run-tests.mjs --sizes 2000     # push past the target

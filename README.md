@@ -50,15 +50,19 @@ npx serve .
 
 ## Building
 
-There is nothing to build. `index.html` *is* the deliverable.
+There is nothing to build. `index.html` *is* the deliverable — it runs as-is.
 
-What stands in for a build is a static check that catches what a bundler normally would —
-unparseable JavaScript, duplicate element ids, `getElementById` calls for ids that do not
-exist, and filenames reaching `innerHTML`:
+Two scripts stand in for a build:
 
 ```bash
-npm run build       # == node tools/check.mjs
+npm run check       # static checks: unparseable JS, duplicate element ids,
+                    # getElementById calls for ids that don't exist,
+                    # filenames reaching innerHTML
+npm run build       # runs the checks, then stages index.html into public/
 ```
+
+`public/` exists only because static hosts expect a directory to publish. It is
+generated and gitignored; nothing in the app depends on it.
 
 ## Testing
 
@@ -86,7 +90,11 @@ Upload `index.html` anywhere that serves static files — GitHub Pages, Netlify,
 Pages, S3, or a folder on a web server. No server-side code, no environment variables,
 no database.
 
-For GitHub Pages: push to `main` and enable Pages on the repository root.
+**GitHub Pages:** push to `main` and enable Pages on the repository root — no build needed.
+
+**Vercel / Netlify / Cloudflare Pages:** build command `npm run build`, output directory
+`public`. That is what [`vercel.json`](vercel.json) already configures, so a Vercel import
+needs no settings changed.
 
 ## Architecture in one paragraph
 

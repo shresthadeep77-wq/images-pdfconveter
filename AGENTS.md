@@ -32,6 +32,8 @@ one document. No framework, no bundler, no build step.
 index.html          the app — everything
 tests/run-tests.mjs browser-driven test + benchmark suite
 tools/check.mjs     static checks (stands in for a build)
+tools/build.mjs     checks + stage index.html into public/ for static hosts
+vercel.json         build command + output directory
 package.json        scripts + one dev dependency
 ARCHITECTURE.md     structure, data flow, pipelines
 PERFORMANCE.md      bottlenecks, measurements, strategy
@@ -119,14 +121,19 @@ in a worker first.
 ```bash
 npm install          # one dev dependency
 npm start            # serve at http://localhost:5173 (needed for Web Workers)
-npm run build        # static checks — run this after every edit
+npm run check        # static checks — run this after every edit
+npm run build        # checks + stage index.html into public/ (deploy only)
 npm test             # full suite: 100 / 250 / 500 / 1000 files
 npm run test:1000
 npm run test:headed  # visible browser
 ```
 
-`npm run build` is fast and catches broken JS, duplicate ids, `$('id')` lookups for
+`npm run check` is fast and catches broken JS, duplicate ids, `$('id')` lookups for
 elements that do not exist, and filenames reaching `innerHTML`. Run it before `npm test`.
+
+`npm run build` is only for deployment: it runs the checks, then copies `index.html` into
+a generated, gitignored `public/`. Static hosts expect a directory to publish; the app
+itself still has no build step.
 
 ## Debugging
 
