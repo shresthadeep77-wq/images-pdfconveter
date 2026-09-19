@@ -369,6 +369,89 @@
            these when present (same name), so no conflict. ===== */
         .hidden { display: none; }
         [hidden] { display: none; }
+
+        /* =====================================================================
+           LARGE-BATCH ADDITIONS
+           Virtualized grid/list geometry, file state chips, batch progress.
+           ===================================================================== */
+
+        /* The grid is virtualized: #fileGrid is a positioned spacer whose height
+           represents ALL rows, while only visible cards exist in the DOM. */
+        #fileGrid.vgrid { position: relative; display: block; width: 100%; }
+        #fileGrid.vgrid .file-card { position: absolute; contain: layout paint style; }
+
+        .thumb-shell { position: relative; background: var(--surface-2); overflow: hidden; }
+        .thumb-shell img { width: 100%; height: 100%; object-fit: contain; padding: 6px; display: block; }
+        .thumb-shell.is-loading::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(100deg, transparent 20%, rgba(140,133,121,0.16) 50%, transparent 80%);
+            background-size: 220% 100%; animation: shimmer 1.1s linear infinite;
+        }
+        @keyframes shimmer { from { background-position: 220% 0; } to { background-position: -120% 0; } }
+        .thumb-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: var(--muted); }
+
+        /* File state chip — icon + word, never colour alone. */
+        .state-chip { display: inline-flex; align-items: center; gap: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
+        .state-chip[data-state="ready"]   { color: var(--muted);   background: var(--surface-2); }
+        .state-chip[data-state="waiting"] { color: var(--muted);   background: var(--surface-2); }
+        .state-chip[data-state="working"] { color: var(--signal);  background: var(--signal-soft); }
+        .state-chip[data-state="done"]    { color: var(--circuit); background: var(--circuit-soft); }
+        .state-chip[data-state="failed"]  { color: #B3400F;        background: var(--signal-soft); }
+        .state-chip[data-state="cancelled"] { color: var(--muted); background: var(--surface-2); }
+        .file-card.is-failed { outline: 2px solid #D85A30; outline-offset: 2px; }
+
+        .card-mini {
+            background: transparent; border: none; color: var(--muted); cursor: pointer;
+            width: 30px; height: 30px; border-radius: 8px; display: inline-flex;
+            align-items: center; justify-content: center; font-size: 0.72rem; transition: 0.15s;
+        }
+        .card-mini:hover { background: var(--surface-2); color: var(--ink); }
+        .card-del:hover { color: #D85A30; }
+        .card-del.armed { background: var(--signal); color: #fff; }
+        .card-eye:hover { background: rgba(26,24,22,0.7); }
+        .file-card.drag-over { outline: 2px dashed var(--signal); outline-offset: 2px; }
+
+        /* Virtualized conversion list */
+        #conversionList.vlist { position: relative; display: block; overflow-y: auto; }
+        #conversionList.vlist .conv-row { position: absolute; left: 0; right: 0; top: 0; box-sizing: border-box; }
+
+        /* Batch progress: counters row inside the processing modal */
+        .batch-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+        .batch-stat { background: var(--surface-2); border-radius: 10px; padding: 7px 9px; text-align: center; }
+        .batch-stat .n { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 0.98rem; color: var(--ink); display: block; line-height: 1.2; }
+        .batch-stat .k { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+        .batch-stat.failed .n { color: #B3400F; }
+        .batch-errors { margin-top: 10px; max-height: 120px; overflow-y: auto; text-align: left; font-size: 0.72rem; color: var(--muted); }
+        .batch-errors li { padding: 3px 0; border-bottom: 1px solid var(--line); }
+        .batch-errors li:last-child { border-bottom: none; }
+        .batch-errors .bad-name { color: var(--ink); font-weight: 500; }
+
+        /* Import banner — shown while a large selection is being ingested */
+        .import-banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius); background: var(--signal-soft); color: var(--signal); font-size: 0.82rem; margin-bottom: 12px; }
+        .import-banner .bar { flex: 1; height: 4px; border-radius: 999px; background: rgba(232,84,30,0.22); overflow: hidden; }
+        .import-banner .bar > i { display: block; height: 100%; background: var(--signal); width: 0%; transition: width 0.18s linear; }
+
+        /* Drop zone states — distinguishable without colour alone */
+        .drop-zone.is-busy { border-style: solid; opacity: 0.65; cursor: progress; }
+        .drop-zone.is-rejected { border-color: #D85A30; background: var(--signal-soft); }
+        .compact-drop.dragover { border-color: var(--signal); background: var(--signal-soft); }
+
+        /* Visible focus for keyboard users everywhere */
+        :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 6px; }
+
+        /* Screen-reader-only live region (no visual footprint) */
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+                scroll-behavior: auto !important;
+            }
+            .file-card:hover { transform: none; }
+        }
+
     </style>
 </head>
 <body class="antialiased">
@@ -453,7 +536,7 @@
                 <!-- LEFT: file grids + conversion list -->
                 <div class="min-w-0">
                     <!-- Selection bar -->
-                    <div class="flex items-center gap-3 mb-4 flex-wrap">
+                    <div id="selectionBar" class="flex items-center gap-3 mb-4 flex-wrap">
                         <div class="relative flex-1 min-w-[180px]">
                             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-sm" style="color: var(--muted);" aria-hidden="true"></i>
                             <input id="searchInput" type="text" placeholder="Filter files…" class="w-full pl-9 pr-3 py-2.5 panel rounded-xl text-sm outline-none" style="background: var(--surface); color: var(--ink);" aria-label="Filter files by name">
@@ -466,7 +549,9 @@
                     </div>
 
                     <!-- Unified grid: all file types mixed -->
-                    <div id="fileGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+                    <div id="importBanner" class="import-banner" hidden><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i><span class="import-label">Adding files…</span><span class="bar" aria-hidden="true"><i></i></span></div>
+                    <p id="gridNoMatches" class="text-center py-8" style="color: var(--muted);" hidden>No files match your filter.</p>
+                    <div id="fileGrid"></div>
 
                     <!-- Conversion box — the default convert surface (always visible) -->
                     <div id="conversionSection" class="mt-8 pt-8" style="border-top: 1px solid var(--line);">
@@ -478,6 +563,7 @@
                             </div>
                         </div>
                         <div class="conversion-list-wrapper">
+                            <div id="conversionEmpty" class="empty-conversion" hidden><i class="fas fa-file-import text-3xl block mb-3" style="color: var(--line-strong);" aria-hidden="true"></i><p>No files in the conversion queue yet. Add files above, or use the arrow button on any file card.</p></div>
                             <div id="conversionList"></div>
                             <div id="bulkBar" class="bulk-bar">
                                 <span class="bulk-label">Convert all (<span id="bulkCount">0</span>) to:</span>
@@ -527,8 +613,9 @@
                     <!-- Empty state -->
                     <div id="emptyState" class="flex flex-col items-center justify-center py-16 text-center">
                         <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl mb-4" style="background: var(--surface-2); color: var(--line-strong);"><i class="fas fa-folder-open" aria-hidden="true"></i></div>
-                        <h2 class="font-display text-xl font-semibold" style="color: var(--ink);">Nothing loaded yet</h2>
-                        <p class="max-w-sm mt-1 mb-6" style="color: var(--muted);">Add files to convert, compress, or merge them — all locally.</p>
+                        <h2 class="font-display text-xl font-semibold" style="color: var(--ink);">Start by adding some files</h2>
+                        <p class="max-w-md mt-1" style="color: var(--muted);">Turn images into a PDF, convert between formats, or shrink files — entirely on your device. Nothing is uploaded anywhere.</p>
+                        <p class="max-w-md mt-2 mb-6 text-sm" style="color: var(--muted);">Drag files or a whole folder onto the box above, or use the buttons below. Handles JPG, PNG, WebP, GIF, BMP, PDF, DOCX, XLSX and PPTX — thousands at a time.</p>
                         <div class="flex flex-wrap items-center justify-center gap-3">
                             <button onclick="document.getElementById('fileInput').click()" class="px-6 py-2.5 text-white font-semibold rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="background: var(--signal);"><i class="fas fa-arrow-up-from-bracket" aria-hidden="true"></i> Upload files</button>
                             <button id="quickStartImage" class="px-4 py-2.5 panel-2 rounded-xl transition-all flex items-center gap-2 min-h-[44px]" style="color: var(--ink);"><i class="fas fa-image" style="color: var(--signal);" aria-hidden="true"></i> Images</button>
@@ -682,6 +769,8 @@
             <div class="space-y-2">
                 <div class="flex justify-between mono text-xs" style="color: var(--muted);"><span id="processingStatus">Initializing</span><span id="processingProgressText">0%</span></div>
                 <div class="w-full h-1.5 rounded-full overflow-hidden" style="background: var(--surface-2);"><div id="processingProgressFill" class="h-full transition-all duration-300 ease-out" style="width: 0%; background: var(--signal);"></div></div>
+                    <div class="batch-stats" id="batchStats" hidden><div class="batch-stat"><span class="n" id="statDone">0</span><span class="k">Done</span></div><div class="batch-stat"><span class="n" id="statLeft">0</span><span class="k">Left</span></div><div class="batch-stat failed"><span class="n" id="statFailed">0</span><span class="k">Failed</span></div></div>
+                    <ul class="batch-errors" id="batchErrors" hidden></ul>
             </div>
             <div class="flex justify-end gap-3 mt-6">
                 <button id="processingCancel" class="px-4 py-2 text-sm font-medium transition-all min-h-[44px]" style="color: var(--muted);">Cancel</button>
@@ -829,6 +918,642 @@
             addToConvertBtn = $('addToConvertBtn'),
             globalQualitySlider = $('globalCompressionQuality');
 
+        // ======================================================================
+        //  LARGE-BATCH INFRASTRUCTURE
+        //  Everything below exists so the app stays responsive with 1000+ files.
+        //  Read ARCHITECTURE.md / PERFORMANCE.md before changing any of it.
+        // ======================================================================
+
+        // ---- Tunables (one place to adjust the performance envelope) ---------
+        const HW = (navigator.hardwareConcurrency || 4);
+        const PERF = {
+            thumbMaxPx: 320,            // longest edge of a generated thumbnail
+            thumbQuality: 0.72,
+            thumbWorkers: Math.max(2, Math.min(4, HW - 1)),
+            imageConcurrency: Math.max(2, Math.min(4, HW - 1)),
+            pdfConcurrency: 2,          // pdf.js rasterising is memory-hungry
+            ingestChunk: 150,           // files accepted per animation frame
+            urlCacheSize: 256,          // live thumbnail object URLs
+            estimateCacheSize: 400,
+            maxLiveEstimates: 24,       // size estimates only for what is on screen
+            overscanRows: 2,
+            progressThrottleMs: 120,
+            bigBatch: 120,              // above this we switch to batch-mode UX
+            maxFileSize: 50 * 1024 * 1024,
+        };
+
+        // Thumbnails prefer WebP; fall back to JPEG where the encoder is missing.
+        const THUMB_TYPE = (function () {
+            try {
+                const c = document.createElement('canvas');
+                c.width = c.height = 1;
+                return c.toDataURL('image/webp').indexOf('data:image/webp') === 0 ? 'image/webp' : 'image/jpeg';
+            } catch (e) { return 'image/jpeg'; }
+        })();
+
+        // ---- Scheduling helpers ---------------------------------------------
+        function nextFrame() {
+            return new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+        }
+
+        /** Runs fn at most once per animation frame. */
+        function rafThrottle(fn) {
+            let queued = false, lastArgs = null;
+            return function () {
+                lastArgs = arguments;
+                if (queued) return;
+                queued = true;
+                requestAnimationFrame(() => { queued = false; fn.apply(null, lastArgs); });
+            };
+        }
+
+        /**
+         * Bounded work pool. run(job) queues a job; at most n run at once.
+         * LIFO on purpose: the newest request is the one the user is looking at,
+         * so scrolling always services the visible rows first.
+         */
+        function createPool(n) {
+            const stack = [];
+            let active = 0;
+            function pump() {
+                while (active < n && stack.length) {
+                    const job = stack.pop();
+                    active++;
+                    Promise.resolve().then(job).catch(() => {}).then(() => { active--; pump(); });
+                }
+            }
+            return {
+                run(job) { stack.push(job); pump(); },
+                clear() { stack.length = 0; },
+                get pending() { return stack.length + active; }
+            };
+        }
+
+        /** Least-recently-used map that calls onEvict when entries fall out. */
+        function createLru(limit, onEvict) {
+            const map = new Map();
+            return {
+                get(k) {
+                    if (!map.has(k)) return undefined;
+                    const v = map.get(k); map.delete(k); map.set(k, v); return v;
+                },
+                set(k, v) {
+                    if (map.has(k)) map.delete(k);
+                    map.set(k, v);
+                    while (map.size > limit) {
+                        const fk = map.keys().next().value, fv = map.get(fk);
+                        map.delete(fk);
+                        if (onEvict) onEvict(fv, fk);
+                    }
+                },
+                delete(k) {
+                    if (!map.has(k)) return;
+                    const v = map.get(k); map.delete(k);
+                    if (onEvict) onEvict(v, k);
+                },
+                has(k) { return map.has(k); },
+                clear() { if (onEvict) map.forEach(onEvict); map.clear(); },
+                get size() { return map.size; }
+            };
+        }
+
+        /** Turns a thrown error into something a non-technical user can act on. */
+        function friendlyError(err) {
+            const raw = (err && err.message) ? String(err.message) : String(err || 'Unknown error');
+            if (/abort|cancel/i.test(raw)) return 'Cancelled.';
+            if (/decode|not a valid image|image source|ImageBitmap/i.test(raw)) return 'This file could not be read as an image.';
+            if (/InvalidPDF|Invalid PDF|password|encrypted/i.test(raw)) return 'This PDF could not be opened - it may be damaged or password-protected.';
+            if (/Failed to load library|connection|NetworkError|Failed to fetch/i.test(raw)) return 'A required component could not be downloaded. Check your connection.';
+            if (/toBlob|canvas|Canvas/i.test(raw)) return 'This image was too large for the browser to re-encode.';
+            if (/memory|allocation failed|Array buffer/i.test(raw)) return 'Ran out of memory while processing this file.';
+            return raw.length > 140 ? raw.slice(0, 140) + '…' : raw;
+        }
+
+        /**
+         * Runs task over items with bounded concurrency, per-item error isolation
+         * and cooperative cancellation. One bad file never stops the run.
+         */
+        async function runBatch(items, task, opts) {
+            opts = opts || {};
+            const concurrency = Math.max(1, opts.concurrency || 3);
+            const signal = opts.signal;
+            const onProgress = opts.onProgress;
+            const results = new Array(items.length);
+            const errors = [];
+            let next = 0, done = 0, failed = 0, lastTick = 0;
+
+            function tick(force) {
+                if (!onProgress) return;
+                const now = performance.now();
+                if (!force && now - lastTick < PERF.progressThrottleMs) return;
+                lastTick = now;
+                onProgress({ done: done, failed: failed, total: items.length, errors: errors });
+            }
+
+            async function worker() {
+                for (;;) {
+                    if (signal && signal.aborted) return;
+                    const i = next++;
+                    if (i >= items.length) return;
+                    try {
+                        results[i] = { ok: true, value: await task(items[i], i, signal) };
+                    } catch (err) {
+                        if (signal && signal.aborted) return;
+                        failed++;
+                        const message = friendlyError(err);
+                        results[i] = { ok: false, error: message };
+                        errors.push({ name: (items[i] && items[i].name) || ('Item ' + (i + 1)), message: message });
+                    }
+                    done++;
+                    tick(false);
+                }
+            }
+
+            const lanes = Math.min(concurrency, items.length);
+            const runners = [];
+            for (let k = 0; k < lanes; k++) runners.push(worker());
+            await Promise.all(runners);
+            tick(true);
+            return { results: results, done: done, failed: failed, errors: errors, cancelled: !!(signal && signal.aborted) };
+        }
+
+        // ---- Accessible status announcements --------------------------------
+        const liveRegion = (function () {
+            const el = document.createElement('div');
+            el.className = 'sr-only';
+            el.setAttribute('role', 'status');
+            el.setAttribute('aria-live', 'polite');
+            document.body.appendChild(el);
+            return el;
+        })();
+        let lastAnnounce = '';
+        function announce(msg) {
+            if (msg === lastAnnounce) return;
+            lastAnnounce = msg;
+            liveRegion.textContent = msg;
+        }
+
+        // ======================================================================
+        //  THUMBNAIL PIPELINE
+        //  Decoding and downscaling happen off the main thread where the browser
+        //  allows it. Thumbnails are stored as small Blobs; object URLs are minted
+        //  on demand and recycled through an LRU so at most ~256 are ever live.
+        // ======================================================================
+        const ImageWorkers = (function () {
+            // Kept as an array of lines so the worker source stays readable here.
+            const SRC = [
+                'self.onmessage = async function (e) {',
+                '  var d = e.data;',
+                '  try {',
+                '    var bmp = await createImageBitmap(d.file);',
+                '    var ow = bmp.width, oh = bmp.height, w, h, rot = 0;',
+                '    if (d.op === "thumb") {',
+                '      var s = Math.min(1, d.max / Math.max(ow, oh));',
+                '      w = Math.max(1, Math.round(ow * s)); h = Math.max(1, Math.round(oh * s));',
+                '    } else if (d.op === "resize") {',
+                '      w = Math.max(1, d.width); h = Math.max(1, d.height);',
+                '    } else if (d.op === "rotate") {',
+                '      rot = d.angle || 90; w = oh; h = ow;',
+                '    } else {',
+                '      var s2 = d.max ? Math.min(1, d.max / Math.max(ow, oh)) : 1;',
+                '      w = Math.max(1, Math.round(ow * s2)); h = Math.max(1, Math.round(oh * s2));',
+                '    }',
+                '    var c = new OffscreenCanvas(w, h);',
+                '    var ctx = c.getContext("2d");',
+                '    if (d.background) { ctx.fillStyle = d.background; ctx.fillRect(0, 0, w, h); }',
+                '    if (rot) {',
+                '      ctx.translate(w / 2, h / 2); ctx.rotate(rot * Math.PI / 180); ctx.drawImage(bmp, -ow / 2, -oh / 2);',
+                '    } else {',
+                '      ctx.drawImage(bmp, 0, 0, w, h);',
+                '    }',
+                '    bmp.close();',
+                '    var blob = await c.convertToBlob({ type: d.type, quality: d.quality });',
+                '    self.postMessage({ id: d.id, ok: true, blob: blob, width: ow, height: oh, outWidth: w, outHeight: h });',
+                '  } catch (err) {',
+                '    self.postMessage({ id: d.id, ok: false, error: String((err && err.message) || err) });',
+                '  }',
+                '};'
+            ].join('\n');
+
+            let workers = [];
+            const pending = new Map();
+            let seq = 0, rr = 0, initialised = false, enabled = false, srcUrl = null;
+
+            function init() {
+                if (initialised) return;
+                initialised = true;
+                const capable = typeof Worker === 'function' &&
+                    typeof OffscreenCanvas === 'function' &&
+                    typeof createImageBitmap === 'function';
+                if (!capable) return;
+                try {
+                    srcUrl = URL.createObjectURL(new Blob([SRC], { type: 'text/javascript' }));
+                    for (let i = 0; i < PERF.thumbWorkers; i++) {
+                        const w = new Worker(srcUrl);
+                        w.onmessage = function (e) {
+                            const job = pending.get(e.data.id);
+                            if (!job) return;
+                            pending.delete(e.data.id);
+                            if (e.data.ok) job.resolve(e.data);
+                            else job.reject(new Error(e.data.error));
+                        };
+                        w.onerror = function () { enabled = false; };
+                        workers.push(w);
+                    }
+                    enabled = workers.length > 0;
+                } catch (e) {
+                    // Blob workers are blocked on file:// in some browsers. That is
+                    // expected, not an error - callers fall back to the main thread.
+                    enabled = false;
+                    workers = [];
+                }
+            }
+
+            function post(payload) {
+                const id = ++seq;
+                const w = workers[rr++ % workers.length];
+                return new Promise(function (resolve, reject) {
+                    const timer = setTimeout(function () {
+                        if (pending.has(id)) { pending.delete(id); reject(new Error('Image worker timed out')); }
+                    }, 45000);
+                    pending.set(id, {
+                        resolve: function (v) { clearTimeout(timer); resolve(v); },
+                        reject: function (e) { clearTimeout(timer); reject(e); }
+                    });
+                    payload.id = id;
+                    try { w.postMessage(payload); }
+                    catch (e) { clearTimeout(timer); pending.delete(id); reject(e); }
+                });
+            }
+
+            return {
+                get active() { init(); return enabled; },
+                run: function (payload) { init(); return post(payload); },
+                terminate: function () {
+                    workers.forEach(function (w) { try { w.terminate(); } catch (e) {} });
+                    workers = []; pending.clear(); enabled = false; initialised = false;
+                    if (srcUrl) { URL.revokeObjectURL(srcUrl); srcUrl = null; }
+                }
+            };
+        })();
+
+        /** Main-thread equivalent of the worker op, used when workers are absent. */
+        async function runImageOpOnMainThread(payload) {
+            let bmp = null, src = null, ow, oh;
+            if (typeof createImageBitmap === 'function') {
+                bmp = await createImageBitmap(payload.file);
+                ow = bmp.width; oh = bmp.height; src = bmp;
+            } else {
+                const img = await loadImage(payload.file);
+                ow = img.naturalWidth || img.width; oh = img.naturalHeight || img.height; src = img;
+            }
+            let w, h, rot = 0;
+            if (payload.op === 'thumb') {
+                const s = Math.min(1, payload.max / Math.max(ow, oh));
+                w = Math.max(1, Math.round(ow * s)); h = Math.max(1, Math.round(oh * s));
+            } else if (payload.op === 'resize') {
+                w = Math.max(1, payload.width); h = Math.max(1, payload.height);
+            } else if (payload.op === 'rotate') {
+                rot = payload.angle || 90; w = oh; h = ow;
+            } else {
+                const s2 = payload.max ? Math.min(1, payload.max / Math.max(ow, oh)) : 1;
+                w = Math.max(1, Math.round(ow * s2)); h = Math.max(1, Math.round(oh * s2));
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (payload.background) { ctx.fillStyle = payload.background; ctx.fillRect(0, 0, w, h); }
+            if (rot) {
+                ctx.translate(w / 2, h / 2); ctx.rotate(rot * Math.PI / 180); ctx.drawImage(src, -ow / 2, -oh / 2);
+            } else {
+                ctx.drawImage(src, 0, 0, w, h);
+            }
+            if (bmp) bmp.close();
+            const blob = await new Promise(res => canvas.toBlob(res, payload.type, payload.quality));
+            canvas.width = canvas.height = 0;   // release the backing store immediately
+            if (!blob) throw new Error('Canvas toBlob failed');
+            return { blob: blob, width: ow, height: oh, outWidth: w, outHeight: h };
+        }
+
+        /** Runs an image op in a worker when possible, on the main thread otherwise. */
+        async function runImageOp(payload) {
+            if (ImageWorkers.active) {
+                try { return await ImageWorkers.run(payload); }
+                catch (e) {
+                    if (/timed out|worker/i.test(String(e && e.message))) {
+                        return runImageOpOnMainThread(payload);
+                    }
+                    throw e;
+                }
+            }
+            return runImageOpOnMainThread(payload);
+        }
+
+        /** Re-encodes a whole image file. `maxPx` optionally caps the long edge. */
+        async function encodeImageFile(file, type, quality, maxPx) {
+            const r = await runImageOp({ op: 'encode', file: file, type: type, quality: quality, max: maxPx || 0 });
+            return r.blob;
+        }
+
+        async function makeImageThumb(file) {
+            const r = await runImageOp({
+                op: 'thumb', file: file, max: PERF.thumbMaxPx,
+                type: THUMB_TYPE, quality: PERF.thumbQuality
+            });
+            return { blob: r.blob, width: r.width, height: r.height };
+        }
+
+        /** Page-1 thumbnail for a PDF. Always destroys the document afterwards. */
+        async function makePdfThumb(item) {
+            const pdf = await openPdfDoc(item.file);
+            let canvas = null;
+            try {
+                item.pages = pdf.numPages;
+                const page = await pdf.getPage(1);
+                const base = page.getViewport({ scale: 1 });
+                const scale = Math.min(1.5, PERF.thumbMaxPx / Math.max(base.width, base.height));
+                const viewport = page.getViewport({ scale: scale });
+                canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(viewport.width));
+                canvas.height = Math.max(1, Math.round(viewport.height));
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.7));
+                if (page.cleanup) page.cleanup();
+                if (!blob) throw new Error('Canvas toBlob failed');
+                return { blob: blob };
+            } finally {
+                if (canvas) { canvas.width = canvas.height = 0; }
+                try { await pdf.destroy(); } catch (e) {}
+            }
+        }
+
+        const thumbPool = createPool(PERF.thumbWorkers);
+        const pdfThumbPool = createPool(PERF.pdfConcurrency);
+        const thumbInFlight = new Set();
+        const thumbUrls = createLru(PERF.urlCacheSize, function (url) { URL.revokeObjectURL(url); });
+
+        /** Object URL for an item's thumbnail blob, recycled through the LRU. */
+        function thumbUrlFor(item) {
+            if (!item.thumbBlob) return null;
+            const key = item.kind + ':' + item.id;
+            let url = thumbUrls.get(key);
+            if (!url) { url = URL.createObjectURL(item.thumbBlob); thumbUrls.set(key, url); }
+            return url;
+        }
+
+        function releaseItemResources(item) {
+            if (!item) return;
+            item.removed = true;
+            const key = item.kind + ':' + item.id;
+            thumbUrls.delete(key);
+            thumbInFlight.delete(key);
+            item.thumbBlob = null;
+        }
+
+        /**
+         * Asks for an item's thumbnail. Called by the virtualiser for rows that
+         * are on screen, so off-screen files never cost anything.
+         */
+        function requestThumb(item, onDone) {
+            const key = item.kind + ':' + item.id;
+            if (item.thumbBlob || item.thumbFailed || thumbInFlight.has(key)) return;
+            thumbInFlight.add(key);
+            const pool = item.kind === 'pdf' ? pdfThumbPool : thumbPool;
+            pool.run(async function () {
+                if (item.removed) { thumbInFlight.delete(key); return; }
+                try {
+                    const r = item.kind === 'pdf' ? await makePdfThumb(item) : await makeImageThumb(item.file);
+                    if (item.removed) return;
+                    item.thumbBlob = r.blob;
+                    if (r.width) { item.width = r.width; item.height = r.height; }
+                } catch (e) {
+                    item.thumbFailed = true;
+                    item.thumbError = friendlyError(e);
+                } finally {
+                    thumbInFlight.delete(key);
+                    if (!item.removed && onDone) onDone(item);
+                }
+            });
+        }
+
+        // ======================================================================
+        //  VIRTUALISED GRID
+        //  #fileGrid becomes a spacer as tall as every row, but only the cards in
+        //  view (plus a small overscan) exist in the DOM, and their nodes are
+        //  recycled while scrolling. Interaction is delegated to the container.
+        // ======================================================================
+        function createVirtualGrid(cfg) {
+            const container = cfg.container;
+            const mounted = new Map();   // key -> node
+            const recycled = [];
+            let items = [];
+            let cols = 1, cardW = 0, cardH = 0, lastWidth = 0;
+            let mountedRange = [-1, -1];
+
+            container.classList.add('vgrid');
+            container.classList.remove('grid', 'grid-cols-2', 'sm:grid-cols-3', 'lg:grid-cols-3', 'xl:grid-cols-4', 'gap-4');
+
+            function measure() {
+                const w = container.clientWidth || Math.round(container.getBoundingClientRect().width);
+                if (!w) return false;
+                const c = Math.max(1, Math.floor((w + cfg.gap) / (cfg.minCardWidth + cfg.gap)));
+                const cw = Math.floor((w - cfg.gap * (c - 1)) / c);
+                const changed = c !== cols || cw !== cardW || w !== lastWidth;
+                cols = c; cardW = cw; cardH = Math.round(cw + cfg.infoHeight); lastWidth = w;
+                return changed;
+            }
+
+            function totalHeight() {
+                const rows = Math.ceil(items.length / cols);
+                return rows ? rows * cardH + (rows - 1) * cfg.gap : 0;
+            }
+
+            function visibleRange() {
+                const rect = container.getBoundingClientRect();
+                const viewH = window.innerHeight || document.documentElement.clientHeight;
+                const stride = cardH + cfg.gap;
+                const scrolledPast = Math.max(0, -rect.top);
+                const firstRow = Math.max(0, Math.floor(scrolledPast / stride) - cfg.overscanRows);
+                const rowsNeeded = Math.ceil(viewH / stride) + cfg.overscanRows * 2 + 1;
+                const first = firstRow * cols;
+                const last = Math.min(items.length - 1, first + rowsNeeded * cols - 1);
+                return [first, last];
+            }
+
+            function place(node, index) {
+                const row = Math.floor(index / cols), col = index % cols;
+                node.style.width = cardW + 'px';
+                node.style.height = cardH + 'px';
+                node.style.left = (col * (cardW + cfg.gap)) + 'px';
+                node.style.top = (row * (cardH + cfg.gap)) + 'px';
+            }
+
+            function render(force) {
+                const resized = measure();
+                if (!items.length) {
+                    unmountAll();
+                    container.style.height = '0px';
+                    return;
+                }
+                container.style.height = totalHeight() + 'px';
+                const range = visibleRange();
+                const first = range[0], last = range[1];
+                if (!force && !resized && first === mountedRange[0] && last === mountedRange[1]) return;
+                mountedRange = [first, last];
+
+                const keep = new Set();
+                for (let i = first; i <= last; i++) {
+                    const item = items[i];
+                    if (!item) continue;
+                    const key = item.kind + ':' + item.id;
+                    keep.add(key);
+                    let node = mounted.get(key);
+                    if (!node) {
+                        node = recycled.pop() || cfg.createNode();
+                        mounted.set(key, node);
+                        if (!node.isConnected) container.appendChild(node);
+                    }
+                    cfg.updateNode(node, item, i);
+                    place(node, i);
+                }
+                mounted.forEach(function (node, key) {
+                    if (keep.has(key)) return;
+                    mounted.delete(key);
+                    node.remove();
+                    if (recycled.length < 60) recycled.push(node);
+                });
+            }
+
+            function unmountAll() {
+                mounted.forEach(function (node) { node.remove(); if (recycled.length < 60) recycled.push(node); });
+                mounted.clear();
+                mountedRange = [-1, -1];
+            }
+
+            const onScroll = rafThrottle(function () { render(false); });
+            const onResize = rafThrottle(function () { render(true); });
+            window.addEventListener('scroll', onScroll, { passive: true });
+            window.addEventListener('resize', onResize, { passive: true });
+            if (typeof ResizeObserver === 'function') {
+                new ResizeObserver(onResize).observe(container);
+            }
+
+            return {
+                setItems: function (next) { items = next; render(true); },
+                refresh: function () { render(true); },
+                /** Re-render one card in place - no layout churn. */
+                refreshItem: function (kind, id) {
+                    const node = mounted.get(kind + ':' + id);
+                    if (!node) return;
+                    for (let i = 0; i < items.length; i++) {
+                        if (items[i].kind === kind && items[i].id === id) { cfg.updateNode(node, items[i], i); return; }
+                    }
+                },
+                visibleItems: function () {
+                    if (mountedRange[0] < 0) return [];
+                    return items.slice(mountedRange[0], mountedRange[1] + 1);
+                },
+                get mountedCount() { return mounted.size; },
+                get columns() { return cols; }
+            };
+        }
+
+        // ======================================================================
+        //  VIRTUALISED LIST (conversion queue)
+        //  Scrolls inside its own container with a fixed row height.
+        // ======================================================================
+        function createVirtualList(cfg) {
+            const container = cfg.container;
+            const mounted = new Map();
+            const recycled = [];
+            let items = [];
+            let mountedRange = [-1, -1];
+            let spacer = null;
+
+            container.classList.add('vlist');
+
+            function ensureSpacer() {
+                if (spacer && spacer.isConnected) return spacer;
+                spacer = document.createElement('div');
+                spacer.className = 'vlist-spacer';
+                spacer.style.cssText = 'position:relative;width:1px;pointer-events:none;';
+                container.appendChild(spacer);
+                return spacer;
+            }
+
+            function render(force) {
+                const rowH = cfg.rowHeight();
+                if (!items.length) {
+                    unmountAll();
+                    if (spacer) { spacer.remove(); spacer = null; }
+                    container.style.height = '';
+                    return;
+                }
+                const total = items.length * rowH;
+                container.style.height = Math.min(total, cfg.maxHeight()) + 'px';
+                ensureSpacer().style.height = total + 'px';
+
+                const scrollTop = container.scrollTop;
+                const viewH = container.clientHeight || cfg.maxHeight();
+                const first = Math.max(0, Math.floor(scrollTop / rowH) - 2);
+                const last = Math.min(items.length - 1, Math.ceil((scrollTop + viewH) / rowH) + 2);
+                if (!force && first === mountedRange[0] && last === mountedRange[1]) return;
+                mountedRange = [first, last];
+
+                const keep = new Set();
+                for (let i = first; i <= last; i++) {
+                    const item = items[i];
+                    if (!item) continue;
+                    keep.add(item.id);
+                    let node = mounted.get(item.id);
+                    if (!node) {
+                        node = recycled.pop() || cfg.createNode();
+                        mounted.set(item.id, node);
+                        if (!node.isConnected) container.appendChild(node);
+                    }
+                    cfg.updateNode(node, item, i);
+                    node.style.height = rowH + 'px';
+                    node.style.top = (i * rowH) + 'px';
+                }
+                mounted.forEach(function (node, id) {
+                    if (keep.has(id)) return;
+                    mounted.delete(id);
+                    node.remove();
+                    if (recycled.length < 40) recycled.push(node);
+                });
+                if (cfg.onRangeChange) cfg.onRangeChange();
+            }
+
+            function unmountAll() {
+                mounted.forEach(function (node) { node.remove(); if (recycled.length < 40) recycled.push(node); });
+                mounted.clear();
+                mountedRange = [-1, -1];
+            }
+
+            container.addEventListener('scroll', rafThrottle(function () { render(false); }), { passive: true });
+            window.addEventListener('resize', rafThrottle(function () { render(true); }), { passive: true });
+
+            return {
+                setItems: function (next) { items = next; render(true); },
+                refresh: function () { render(true); },
+                refreshItem: function (id) {
+                    const node = mounted.get(id);
+                    if (!node) return;
+                    for (let i = 0; i < items.length; i++) {
+                        if (items[i].id === id) { cfg.updateNode(node, items[i], i); return; }
+                    }
+                },
+                visibleItems: function () {
+                    if (mountedRange[0] < 0) return [];
+                    return items.slice(mountedRange[0], mountedRange[1] + 1);
+                },
+                get mountedCount() { return mounted.size; }
+            };
+        }
+
         // ===== FORMAT SELECTOR REFS =====
         const formatTrigger = $('formatTrigger');
         const formatPanel = $('formatPanel');
@@ -842,7 +1567,8 @@
         // Only image and document formats are supported client-side.
         const FORMATS = {
             ebook: [
-                { value: 'application/pdf', label: 'PDF', icon: 'fa-file-pdf' },
+                { value: 'application/pdf+merged', label: 'PDF (one document)', icon: 'fa-file-pdf' },
+                { value: 'application/pdf', label: 'PDF (one per file)', icon: 'fa-file-pdf' },
                 { value: 'text/plain', label: 'TXT (text extract)', icon: 'fa-file-alt' },
             ],
             image: [
@@ -1171,40 +1897,59 @@
         }
 
         // Live "compressed size" estimate on image grid cards (reacts to quality slider).
-        const cardEstimateCache = new Map();
+        // ---- Per-card compression preview ------------------------------------
+        // Shown only for selected images that are actually on screen, and only
+        // while the selection is small enough that re-encoding is cheap.
+        const CARD_ESTIMATE_SELECTION_LIMIT = 40;
+        const cardEstimateCache = createLru(PERF.estimateCacheSize);
         let cardEstimateToken = 0;
         let cardEstimateDebounce = null;
+        const cardEstimatePool = createPool(2);
+
+        function cardEstimateKey(item, quality) { return item.id + '|jpeg|' + quality; }
+
+        /** Fills the "-> 240 KB (-62%)" chip on one card from cache. */
+        function paintCardEstimate(node, item) {
+            const el = node.querySelector('.card-est');
+            if (!el) return;
+            const quality = state.settings.imageQuality != null ? state.settings.imageQuality : state.settings.quality;
+            const bytes = state.selectedIds.has(item.id) ? cardEstimateCache.get(cardEstimateKey(item, quality)) : undefined;
+            if (bytes === undefined || bytes === null) { el.textContent = ''; return; }
+            const pct = item.size ? Math.round(((bytes - item.size) / item.size) * 100) : 0;
+            const arrow = bytes < item.size ? '↓' : (bytes > item.size ? '↑' : '');
+            el.textContent = '· ' + formatBytes(bytes) + (pct !== 0 ? ' ' + arrow + Math.abs(pct) + '%' : '');
+            el.style.color = bytes < item.size ? 'var(--circuit)' : 'var(--signal)';
+        }
+
         function scheduleCardEstimateRefresh() {
             clearTimeout(cardEstimateDebounce);
-            cardEstimateDebounce = setTimeout(refreshCardEstimates, 220);
+            cardEstimateDebounce = setTimeout(refreshCardEstimates, 260);
         }
-        async function refreshCardEstimates() {
+
+        function refreshCardEstimates() {
+            if (batchRun.active) return;
             const token = ++cardEstimateToken;
-            const quality = state.settings.imageQuality ?? state.settings.quality;
-            const spans = document.querySelectorAll('.card-est');
-            for (const span of spans) {
-                const id = parseInt(span.dataset.id);
-                // Only estimate cards that are selected — avoids re-encoding every image on load.
-                if (!state.selectedIds.has(id)) { span.textContent = ''; continue; }
-                const file = state.images.find(f => f.id === id);
-                if (!file) continue;
-                const key = `${id}|jpeg|${quality}`;
-                let bytes = cardEstimateCache.get(key);
-                if (bytes === undefined) {
-                    span.textContent = '…';
+            cardEstimatePool.clear();
+            if (state.selectedIds.size === 0 || state.selectedIds.size > CARD_ESTIMATE_SELECTION_LIMIT) return;
+            const quality = state.settings.imageQuality != null ? state.settings.imageQuality : state.settings.quality;
+            const candidates = fileGridView.visibleItems().filter(function (it) {
+                return it.kind === 'image' && state.selectedIds.has(it.id);
+            });
+            candidates.forEach(function (item) {
+                const key = cardEstimateKey(item, quality);
+                if (cardEstimateCache.has(key)) { fileGridView.refreshItem(item.kind, item.id); return; }
+                cardEstimatePool.run(async function () {
+                    if (token !== cardEstimateToken || item.removed) return;
+                    let bytes = null;
                     try {
-                        const blob = await convertToImage({ file: file.file, type: file.type, name: file.name }, 'image/jpeg', quality / 100);
+                        const blob = await encodeImageFile(item.file, 'image/jpeg', quality / 100);
                         bytes = blob.size;
                     } catch (e) { bytes = null; }
+                    if (token !== cardEstimateToken) return;
                     cardEstimateCache.set(key, bytes);
-                }
-                if (token !== cardEstimateToken) return;
-                if (bytes == null) { span.textContent = ''; continue; }
-                const pct = file.size ? Math.round(((bytes - file.size) / file.size) * 100) : 0;
-                const arrow = bytes < file.size ? '↓' : (bytes > file.size ? '↑' : '');
-                span.innerHTML = `· <span style="color:var(--circuit);font-weight:600">${formatBytes(bytes)}</span>` +
-                    (pct !== 0 ? ` <span style="color:${bytes<file.size?'var(--circuit)':'var(--signal)'}">${arrow}${Math.abs(pct)}%</span>` : '');
-            }
+                    fileGridView.refreshItem(item.kind, item.id);
+                });
+            });
         }
 
         // ===== FILE HANDLING =====
@@ -1248,174 +1993,275 @@
                 mime === 'text/html';
         }
 
-        // ===== SAFE RENDER HELPERS =====
-        function renderFileCard(file, type) {
-            const isSelected = state.selectedIds.has(file.id);
-            const div = document.createElement('div');
-            div.className =
-                `file-card bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 overflow-hidden shadow-sm ${isSelected ? 'selected' : ''}`;
-            div.draggable = true;
-            div.dataset.id = file.id;
-            div.dataset.type = type;
-            div.dataset.index = state[type === 'image' ? 'images' : 'pdfs'].indexOf(file);
-            div.tabIndex = 0;
-            div.setAttribute('role', 'checkbox');
-            div.setAttribute('aria-checked', isSelected);
-            div.setAttribute('aria-label', file.name + ' (' + formatBytes(file.size) + ')');
-            div.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') { e.preventDefault(); openPreview(type, file.id); }
-                if (e.key === ' ') {
-                    e.preventDefault();
-                    if (state.selectedIds.has(file.id)) state.selectedIds.delete(file.id);
-                    else state.selectedIds.add(file.id);
-                    renderAll();
-                }
-            });
+        // ======================================================================
+        //  FILE CARDS (recycled nodes + delegated events)
+        //  Nodes are built once and re-filled as they scroll. Never attach a
+        //  listener per card - the grid container handles everything.
+        // ======================================================================
+        const CARD_INFO_H = 94;   // height of the text block under the thumbnail
+        const CARD_MIN_W = 150;
+        const CARD_GAP = 14;
 
-            // Thumbnail area
-            const thumbWrapper = document.createElement('div');
-            thumbWrapper.className = 'relative aspect-square bg-slate-100 dark:bg-slate-900/50';
-            const img = document.createElement('img');
-            img.src = file.thumbnail;
-            img.alt = file.name;
-            img.className = 'w-full h-full object-contain p-2';
-            img.loading = 'lazy';
-            thumbWrapper.appendChild(img);
+        const STATE_LABELS = {
+            waiting:   { icon: 'fa-hourglass-half', text: 'Waiting' },
+            working:   { icon: 'fa-circle-notch fa-spin', text: 'Working' },
+            done:      { icon: 'fa-circle-check', text: 'Done' },
+            failed:    { icon: 'fa-triangle-exclamation', text: 'Failed' },
+            cancelled: { icon: 'fa-ban', text: 'Cancelled' }
+        };
 
-            // Checkbox
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.className =
-                'absolute top-2 left-2 w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-indigo-500 focus:ring-indigo-500 cursor-pointer';
-            cb.checked = state.selectedIds.has(file.id);
-            cb.dataset.id = file.id;
-            cb.addEventListener('change', (e) => {
-                if (e.target.checked) state.selectedIds.add(file.id);
-                else state.selectedIds.delete(file.id);
-                renderAll();
-            });
-            thumbWrapper.appendChild(cb);
-
-            // Preview button
-            const previewBtn = document.createElement('button');
-            previewBtn.className =
-                'absolute top-2 right-2 p-1 bg-black/20 hover:bg-black/40 backdrop-blur-sm rounded-lg text-white text-xs transition-all';
-            previewBtn.dataset.action = 'preview';
-            previewBtn.dataset.id = file.id;
-            previewBtn.innerHTML = '<i class="fas fa-eye"></i>';
-            previewBtn.addEventListener('click', (e) => { e.stopPropagation();
-                openPreview(type, file.id); });
-            thumbWrapper.appendChild(previewBtn);
-
-            div.appendChild(thumbWrapper);
-
-            // Info area
-            const infoDiv = document.createElement('div');
-            infoDiv.className = 'p-3';
-            const nameP = document.createElement('p');
-            nameP.className = 'text-sm font-medium text-slate-700 dark:text-slate-200 truncate';
-            nameP.title = file.name;
-            safeText(nameP, file.name);
-            infoDiv.appendChild(nameP);
-
-            const metaDiv = document.createElement('div');
-            metaDiv.className = 'flex items-center justify-between text-xs text-slate-400 dark:text-slate-500';
-            const sizeSpan = document.createElement('span');
-            if (type === 'image') {
-                sizeSpan.innerHTML = `${formatBytes(file.size)} <span class="card-est" data-id="${file.id}"></span>`;
-            } else {
-                safeText(sizeSpan, formatBytes(file.size));
-            }
-            metaDiv.appendChild(sizeSpan);
-            if (file.width) {
-                const dimSpan = document.createElement('span');
-                safeText(dimSpan, `${file.width}×${file.height}`);
-                metaDiv.appendChild(dimSpan);
-            }
-            infoDiv.appendChild(metaDiv);
-
-            const bottomDiv = document.createElement('div');
-            bottomDiv.className = 'flex items-center justify-between mt-2';
-            const typeSpan = document.createElement('span');
-            typeSpan.className = 'text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400';
-            safeText(typeSpan, (file.type || '').split('/')[1] || (type === 'pdf' ? 'pdf' : 'file'));
-            bottomDiv.appendChild(typeSpan);
-
-            const actionDiv = document.createElement('div');
-            actionDiv.className = 'flex gap-1';
-            // Download
-            const dlBtn = document.createElement('button');
-            dlBtn.className =
-                'p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-500 transition-all min-h-[36px] min-w-[36px]';
-            dlBtn.dataset.action = 'download';
-            dlBtn.dataset.id = file.id;
-            dlBtn.innerHTML = '<i class="fas fa-download text-xs"></i>';
-            dlBtn.addEventListener('click', (e) => { e.stopPropagation();
-                downloadFile(type, file.id); });
-            actionDiv.appendChild(dlBtn);
-
-            // Delete (inline ✓/✗ confirm)
-            const delBtn = document.createElement('button');
-            delBtn.className = 'card-del p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all min-h-[36px] min-w-[36px]';
-            delBtn.dataset.action = 'delete';
-            delBtn.dataset.id = file.id;
-            delBtn.innerHTML = '<i class="fas fa-trash-can text-xs"></i>';
-            delBtn.title = 'Delete';
-            let armed = false, armTimer = null;
-            delBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (!armed) {
-                    armed = true;
-                    delBtn.classList.add('armed');
-                    delBtn.innerHTML = '<i class="fas fa-check text-xs"></i>';
-                    delBtn.title = 'Confirm delete';
-                    armTimer = setTimeout(() => {
-                        armed = false;
-                        delBtn.classList.remove('armed');
-                        delBtn.innerHTML = '<i class="fas fa-trash-can text-xs"></i>';
-                        delBtn.title = 'Delete';
-                    }, 2500);
-                } else {
-                    clearTimeout(armTimer);
-                    deleteFile(type, file.id);
-                }
-            });
-            actionDiv.appendChild(delBtn);
-
-            // Add to conversion
-            const convBtn = document.createElement('button');
-            convBtn.className =
-                'p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-500 transition-all min-h-[36px] min-w-[36px]';
-            convBtn.dataset.action = 'addConvert';
-            convBtn.dataset.id = file.id;
-            convBtn.innerHTML = '<i class="fas fa-exchange-alt text-xs"></i>';
-            convBtn.title = 'Add to conversion queue';
-            convBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const f = type === 'image' ? state.images.find(i => i.id === file.id) : state.pdfs.find(p => p.id ===
-                    file.id);
-                if (f) addToConversion([f.file]);
-            });
-            actionDiv.appendChild(convBtn);
-
-            bottomDiv.appendChild(actionDiv);
-            infoDiv.appendChild(bottomDiv);
-            div.appendChild(infoDiv);
-
-            // Drag events
-            div.addEventListener('dragstart', handleDragStart);
-            div.addEventListener('dragend', (e) => div.classList.remove('opacity-50'));
-            div.addEventListener('dragover', (e) => { e.preventDefault();
-                div.classList.add('drag-over'); });
-            div.addEventListener('dragleave', (e) => div.classList.remove('drag-over'));
-            div.addEventListener('drop', handleDrop);
-
-            return div;
+        function createCardNode() {
+            const el = document.createElement('div');
+            el.className = 'file-card panel';
+            el.setAttribute('role', 'checkbox');
+            el.tabIndex = 0;
+            el.draggable = true;
+            el.style.cssText = 'display:flex;flex-direction:column;overflow:hidden;border-radius:14px;cursor:pointer;';
+            el.innerHTML =
+                '<div class="thumb-shell is-loading" style="flex:1 1 auto;min-height:0;">' +
+                    '<img alt="" decoding="async" hidden>' +
+                    '<span class="thumb-fallback" hidden aria-hidden="true"><i class="fas fa-image"></i></span>' +
+                    '<input type="checkbox" class="card-check" tabindex="-1" aria-hidden="true" ' +
+                        'style="position:absolute;top:8px;left:8px;width:17px;height:17px;cursor:pointer;accent-color:var(--signal);">' +
+                    '<button type="button" data-action="preview" class="card-eye" aria-label="Preview" ' +
+                        'style="position:absolute;top:6px;right:6px;width:30px;height:30px;border:none;border-radius:8px;background:rgba(26,24,22,0.45);color:#fff;cursor:pointer;">' +
+                        '<i class="fas fa-eye" aria-hidden="true"></i></button>' +
+                '</div>' +
+                '<div style="flex:0 0 auto;padding:9px 10px;">' +
+                    '<p class="card-name" style="font-size:0.78rem;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 0 3px;"></p>' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:0.66rem;color:var(--muted);">' +
+                        '<span class="card-size mono"></span><span class="card-est mono"></span><span class="card-dims mono"></span>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px;">' +
+                        '<span class="state-chip" data-state="ready" hidden></span>' +
+                        '<span class="card-kind mono" style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;"></span>' +
+                        '<span style="flex:1"></span>' +
+                        '<button type="button" data-action="download" class="card-mini" aria-label="Download"><i class="fas fa-download" aria-hidden="true"></i></button>' +
+                        '<button type="button" data-action="convert" class="card-mini" aria-label="Add to conversion queue"><i class="fas fa-exchange-alt" aria-hidden="true"></i></button>' +
+                        '<button type="button" data-action="delete" class="card-mini card-del" aria-label="Remove"><i class="fas fa-trash-can" aria-hidden="true"></i></button>' +
+                    '</div>' +
+                '</div>';
+            return el;
         }
 
+        let armedDeleteKey = null, armedDeleteTimer = null;
+
+        function updateCardNode(node, item, index) {
+            const key = item.kind + ':' + item.id;
+            const selected = state.selectedIds.has(item.id);
+            node.dataset.id = item.id;
+            node.dataset.kind = item.kind;
+            node.dataset.index = index;
+            node.classList.toggle('selected', selected);
+            node.classList.toggle('is-failed', item.status === 'failed');
+            node.setAttribute('aria-checked', selected ? 'true' : 'false');
+            node.setAttribute('aria-label',
+                item.name + ', ' + formatBytes(item.size) +
+                (item.status && item.status !== 'ready' ? ', ' + (STATE_LABELS[item.status] || {}).text : ''));
+
+            const shell = node.firstElementChild;
+            const img = shell.querySelector('img');
+            const fallback = shell.querySelector('.thumb-fallback');
+            const url = thumbUrlFor(item);
+            if (url) {
+                if (img.getAttribute('src') !== url) img.src = url;
+                img.hidden = false;
+                img.alt = 'Preview of ' + item.name;
+                fallback.hidden = true;
+                shell.classList.remove('is-loading');
+            } else if (item.thumbFailed) {
+                img.hidden = true;
+                img.removeAttribute('src');
+                fallback.hidden = false;
+                fallback.firstElementChild.className = 'fas fa-file-circle-exclamation';
+                shell.classList.remove('is-loading');
+            } else {
+                img.hidden = true;
+                img.removeAttribute('src');
+                fallback.hidden = true;
+                shell.classList.add('is-loading');
+                requestThumb(item, function (it) { fileGridView.refreshItem(it.kind, it.id); });
+            }
+
+            const check = shell.querySelector('.card-check');
+            check.checked = selected;
+
+            const nameEl = node.querySelector('.card-name');
+            nameEl.textContent = item.name;           // textContent: filenames are never parsed as HTML
+            nameEl.title = item.name;
+            node.querySelector('.card-size').textContent = formatBytes(item.size);
+            node.querySelector('.card-dims').textContent =
+                item.kind === 'pdf'
+                    ? (item.pages ? item.pages + (item.pages === 1 ? ' page' : ' pages') : '')
+                    : (item.width ? item.width + '×' + item.height : '');
+            node.querySelector('.card-kind').textContent =
+                item.kind === 'pdf' ? 'pdf' : ((item.type || '').split('/')[1] || 'image');
+
+            const chip = node.querySelector('.state-chip');
+            const meta = STATE_LABELS[item.status];
+            if (meta) {
+                chip.hidden = false;
+                chip.dataset.state = item.status;
+                chip.innerHTML = '<i class="fas ' + meta.icon + '" aria-hidden="true"></i>';
+                chip.appendChild(document.createTextNode(meta.text));
+                chip.title = item.status === 'failed' && item.error ? item.error : meta.text;
+            } else {
+                chip.hidden = true;
+            }
+
+            paintCardEstimate(node, item);
+
+            node.querySelector('.card-eye').setAttribute('aria-label', 'Preview ' + item.name);
+            node.querySelector('[data-action="download"]').setAttribute('aria-label', 'Download ' + item.name);
+            node.querySelector('[data-action="convert"]').setAttribute('aria-label', 'Add ' + item.name + ' to the conversion queue');
+
+            const del = node.querySelector('.card-del');
+            const armed = armedDeleteKey === key;
+            del.classList.toggle('armed', armed);
+            del.innerHTML = '<i class="fas ' + (armed ? 'fa-check' : 'fa-trash-can') + '" aria-hidden="true"></i>';
+            del.setAttribute('aria-label', armed ? 'Confirm removal of ' + item.name : 'Remove ' + item.name);
+        }
+
+        function findItem(kind, id) {
+            const arr = kind === 'pdf' ? state.pdfs : state.images;
+            for (let i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i];
+            return null;
+        }
+
+        function toggleSelection(id) {
+            if (state.selectedIds.has(id)) state.selectedIds.delete(id);
+            else state.selectedIds.add(id);
+            refreshSelectionUi();
+        }
+
+        /** Cheap update path: selection changed, nothing structural. */
+        function refreshSelectionUi() {
+            updateSelectedCount();
+            updateToolbar();
+            fileGridView.refresh();
+            updateSelectAllLabel();
+        }
+
+        function updateSelectAllLabel() {
+            const btn = $('selectAllBtn');
+            if (!btn) return;
+            const shown = visibleFileItems();
+            const all = shown.length > 0 && shown.every(function (f) { return state.selectedIds.has(f.id); });
+            btn.textContent = all ? 'Deselect all' : 'Select all';
+        }
+
+        function visibleFileItems() {
+            const q = state.searchQuery.trim().toLowerCase();
+            const all = state.images.concat(state.pdfs);
+            return q ? all.filter(function (f) { return f.name.toLowerCase().indexOf(q) !== -1; }) : all;
+        }
+
+        // ---- Delegated grid interaction -------------------------------------
+        fileGrid.addEventListener('click', function (e) {
+            const card = e.target.closest('.file-card');
+            if (!card) return;
+            const kind = card.dataset.kind, id = parseInt(card.dataset.id, 10);
+            const btn = e.target.closest('[data-action]');
+            if (btn) {
+                e.stopPropagation();
+                const action = btn.dataset.action;
+                if (action === 'preview') { openPreview(kind, id); return; }
+                if (action === 'download') { downloadFile(kind, id); return; }
+                if (action === 'convert') {
+                    const it = findItem(kind, id);
+                    if (it) addToConversion([it.file]);
+                    return;
+                }
+                if (action === 'delete') {
+                    const key = kind + ':' + id;
+                    if (armedDeleteKey !== key) {
+                        armedDeleteKey = key;
+                        clearTimeout(armedDeleteTimer);
+                        armedDeleteTimer = setTimeout(function () {
+                            armedDeleteKey = null;
+                            fileGridView.refreshItem(kind, id);
+                        }, 2500);
+                        fileGridView.refreshItem(kind, id);
+                    } else {
+                        clearTimeout(armedDeleteTimer);
+                        armedDeleteKey = null;
+                        deleteFile(kind, id);
+                    }
+                    return;
+                }
+            }
+            if (e.target.classList.contains('card-check')) { toggleSelection(id); return; }
+            toggleSelection(id);
+        });
+
+        fileGrid.addEventListener('keydown', function (e) {
+            const card = e.target.closest('.file-card');
+            if (!card) return;
+            const kind = card.dataset.kind, id = parseInt(card.dataset.id, 10);
+            if (e.key === 'Enter') { e.preventDefault(); openPreview(kind, id); }
+            else if (e.key === ' ') { e.preventDefault(); toggleSelection(id); }
+            else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteFile(kind, id); }
+        });
+
+        // ---- Drag to reorder (delegated; same file kind only) ----------------
+        let dragSrc = null;
+        fileGrid.addEventListener('dragstart', function (e) {
+            const card = e.target.closest('.file-card');
+            if (!card) return;
+            dragSrc = { kind: card.dataset.kind, id: parseInt(card.dataset.id, 10) };
+            card.style.opacity = '0.5';
+            e.dataTransfer.effectAllowed = 'move';
+            try { e.dataTransfer.setData('text/plain', ''); } catch (err) {}
+        });
+        fileGrid.addEventListener('dragend', function (e) {
+            const card = e.target.closest('.file-card');
+            if (card) card.style.opacity = '';
+            dragSrc = null;
+        });
+        fileGrid.addEventListener('dragover', function (e) {
+            const card = e.target.closest('.file-card');
+            if (!card || !dragSrc || card.dataset.kind !== dragSrc.kind) return;
+            e.preventDefault();
+            card.classList.add('drag-over');
+        });
+        fileGrid.addEventListener('dragleave', function (e) {
+            const card = e.target.closest('.file-card');
+            if (card) card.classList.remove('drag-over');
+        });
+        fileGrid.addEventListener('drop', function (e) {
+            const card = e.target.closest('.file-card');
+            if (!card || !dragSrc) return;
+            e.preventDefault();
+            card.classList.remove('drag-over');
+            if (card.dataset.kind !== dragSrc.kind) { dragSrc = null; return; }
+            const arr = dragSrc.kind === 'pdf' ? state.pdfs : state.images;
+            const from = arr.findIndex(function (x) { return x.id === dragSrc.id; });
+            const to = arr.findIndex(function (x) { return x.id === parseInt(card.dataset.id, 10); });
+            dragSrc = null;
+            if (from < 0 || to < 0 || from === to) return;
+            arr.splice(to, 0, arr.splice(from, 1)[0]);
+            renderGrids();
+            announce('File moved to position ' + (to + 1));
+        });
+
+        const fileGridView = createVirtualGrid({
+            container: fileGrid,
+            minCardWidth: CARD_MIN_W,
+            gap: CARD_GAP,
+            infoHeight: CARD_INFO_H,
+            overscanRows: PERF.overscanRows,
+            createNode: createCardNode,
+            updateNode: updateCardNode
+        });
+
         // ===== RENDER FUNCTIONS =====
+        /**
+         * Full rebuild. Cheap because every list is virtualised - cost is
+         * proportional to what is on screen, not to how many files exist.
+         */
         function renderAll() {
             updateCounts();
+            updateEmptyState();      // must run first: the virtualisers measure visible widths
             renderGrids();
             renderConversionList();
             updateConvertHints();
@@ -1425,6 +2271,7 @@
             updateSelectedCount();
             updateBulkBar();
             updateFormatSelectorState();
+            updateSelectAllLabel();
             scheduleCardEstimateRefresh();
         }
 
@@ -1437,176 +2284,177 @@
         }
 
         function renderGrids() {
-            fileGrid.innerHTML = '';
-            const query = state.searchQuery.toLowerCase();
-            // Mixed list: images and PDFs together, in upload order.
-            const all = [...state.images.map(f => ({ f, type: 'image' })),
-                         ...state.pdfs.map(f => ({ f, type: 'pdf' }))];
-            const filtered = all.filter(x => x.f.name.toLowerCase().includes(query));
-            if (!all.length) return;
-            if (!filtered.length) {
-                const div = document.createElement('div');
-                div.className = 'col-span-full text-center py-8 text-slate-400 dark:text-slate-500';
-                safeText(div, 'No files match your search.');
-                fileGrid.appendChild(div);
-                return;
-            }
-            filtered.forEach(x => fileGrid.appendChild(renderFileCard(x.f, x.type)));
+            const items = visibleFileItems();
+            const noMatches = $('gridNoMatches');
+            if (noMatches) noMatches.hidden = !(state.images.length + state.pdfs.length > 0 && items.length === 0);
+            fileGridView.setItems(items);
         }
 
-        // ===== DRAG & DROP =====
-        let dragSrcIndex = null;
-        let dragSrcType = null;
+        // ======================================================================
+        //  CONVERSION LIST (virtualised, delegated)
+        //  Rows are recycled and the <select> is built once per node, not once
+        //  per file - 1000 files used to mean ~7000 <option> elements.
+        // ======================================================================
+        const CONV_ROW_H = function () { return window.matchMedia('(max-width: 640px)').matches ? 92 : 62; };
+        const CONV_MAX_H = function () { return Math.max(240, Math.round(window.innerHeight * 0.55)); };
 
-        function handleDragStart(e) {
-            dragSrcIndex = parseInt(this.dataset.index);
-            dragSrcType = this.dataset.type;
-            this.classList.add('opacity-50');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', '');
-        }
+        const ALL_OUTPUT_FORMATS = [
+            { value: 'image/png', label: 'PNG' },
+            { value: 'image/jpeg', label: 'JPG' },
+            { value: 'image/webp', label: 'WebP' },
+            { value: 'image/bmp', label: 'BMP' },
+            { value: 'image/gif', label: 'GIF' },
+            { value: 'application/pdf', label: 'PDF' },
+            { value: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', label: 'DOCX' },
+            { value: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', label: 'XLSX' },
+            { value: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', label: 'PPTX' }
+        ];
 
-        function handleDrop(e) {
-            e.preventDefault();
-            this.classList.remove('drag-over');
-            const targetIndex = parseInt(this.dataset.index);
-            const type = this.dataset.type === 'image' ? 'images' : 'pdfs';
-            if (dragSrcType && dragSrcType !== this.dataset.type) { dragSrcIndex = null; dragSrcType = null; return; }
-            if (dragSrcIndex !== null && targetIndex !== dragSrcIndex) {
-                const items = type === 'images' ? state.images : state.pdfs;
-                const [removed] = items.splice(dragSrcIndex, 1);
-                items.splice(targetIndex, 0, removed);
-                renderAll();
-                showToast('Reorder updated', 'info');
-            }
-            dragSrcIndex = null;
-            dragSrcType = null;
-        }
-
-        // ===== CONVERSION LIST =====
-        function renderConversionList() {
-            conversionList.innerHTML = '';
-            const items = state.conversionFiles;
-            if (!items.length) {
-                const div = document.createElement('div');
-                div.className = 'empty-conversion';
-                div.innerHTML =
-                    `<i class="fas fa-file-import text-3xl block mb-3 text-slate-300 dark:text-slate-600"></i><p>No files in conversion queue. Add files from the upload area or from the image/PDF grids.</p>`;
-                conversionList.appendChild(div);
-                return;
-            }
-
-            items.forEach(item => {
-                const row = document.createElement('div');
-                row.className = 'conv-row';
-                row.dataset.id = item.id;
-
-                const infoDiv = document.createElement('div');
-                infoDiv.className = 'file-info';
-                const nameSpan = document.createElement('div');
-                nameSpan.className = 'file-name';
-                const icon = item.type === 'application/pdf' ? 'fa-file-pdf' : (isImageType(item.type) ?
-                    'fa-file-image' : 'fa-file-alt');
-                const color = item.type === 'application/pdf' ? 'text-red-400' : (isImageType(item.type) ?
-                    'text-indigo-400' : 'text-blue-400');
-                nameSpan.innerHTML = `<i class="fas ${icon} ${color} mr-2"></i>${escapeHtml(item.name)}`;
-                infoDiv.appendChild(nameSpan);
-                const sizeSpan = document.createElement('div');
-                sizeSpan.className = 'file-size';
-                sizeSpan.innerHTML = `${formatBytes(item.size)} <span class="est-size" data-id="${item.id}"></span>`;
-                infoDiv.appendChild(sizeSpan);
-                row.appendChild(infoDiv);
-
-                // Select
-                const select = document.createElement('select');
-                select.className = 'conv-output';
-                select.dataset.id = item.id;
-                const options = getOutputOptions(item.type);
-                options.forEach(opt => {
-                    const option = document.createElement('option');
-                    option.value = opt.value;
-                    option.textContent = opt.label;
-                    if (opt.value === item.outputFormat) option.selected = true;
-                    select.appendChild(option);
-                });
-                select.addEventListener('change', (e) => {
-                    const id = parseInt(e.target.dataset.id);
-                    updateConversionOutput(id, e.target.value);
-                });
-                row.appendChild(select);
-
-                // Per-row quality (only meaningful for lossy image outputs)
-                const qualityCell = document.createElement('div');
-                qualityCell.className = 'row-quality';
-                const lossy = isImageType(item.type) && ['image/jpeg', 'image/webp'].includes(item.outputFormat);
-                if (lossy) {
-                    const q = item.quality || state.settings.quality;
-                    qualityCell.innerHTML =
-                        `<input type="range" class="row-q-slider" min="10" max="100" value="${q}" data-id="${item.id}" aria-label="Quality for ${escapeHtml(item.name)}">` +
-                        `<span class="row-q-val mono">${q}%</span>`;
-                    const slider = qualityCell.querySelector('.row-q-slider');
-                    const valSpan = qualityCell.querySelector('.row-q-val');
-                    slider.addEventListener('input', (e) => {
-                        const v = parseInt(e.target.value);
-                        valSpan.textContent = v + '%';
-                        item.quality = v;
-                        scheduleRowEstimate(item.id);
-                    });
-                } else {
-                    qualityCell.innerHTML = `<span class="row-q-na mono">—</span>`;
-                }
-                row.appendChild(qualityCell);
-
-                // Actions
-                const actionDiv = document.createElement('div');
-                actionDiv.className = 'action-btns';
-
-                const convertBtn = document.createElement('button');
-                convertBtn.className = 'row-convert';
-                convertBtn.dataset.id = item.id;
-                convertBtn.innerHTML = '<i class="fas fa-arrow-right"></i>';
-                convertBtn.title = 'Convert & download this file';
-                convertBtn.setAttribute('aria-label', 'Convert ' + item.name);
-                convertBtn.addEventListener('click', () => convertSingleItem(item.id));
-                actionDiv.appendChild(convertBtn);
-
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'remove-btn';
-                removeBtn.dataset.id = item.id;
-                removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-                removeBtn.title = 'Remove';
-                removeBtn.addEventListener('click', () => {
-                    const id = parseInt(removeBtn.dataset.id);
-                    removeConversionFile(id);
-                });
-                actionDiv.appendChild(removeBtn);
-
-                row.appendChild(actionDiv);
-                conversionList.appendChild(row);
+        function createConvRow() {
+            const row = document.createElement('div');
+            row.className = 'conv-row';
+            row.innerHTML =
+                '<div class="file-info">' +
+                    '<div class="file-name"><i class="conv-icon fas fa-file" aria-hidden="true"></i> <span class="conv-name"></span></div>' +
+                    '<div class="file-size"><span class="conv-size"></span> <span class="est-size"></span> <span class="state-chip conv-state" hidden></span></div>' +
+                '</div>' +
+                '<select class="conv-output" aria-label="Output format"></select>' +
+                '<div class="row-quality"><input type="range" class="row-q-slider" min="10" max="100" hidden>' +
+                    '<span class="row-q-val mono"></span></div>' +
+                '<div class="action-btns">' +
+                    '<button type="button" class="row-convert" data-action="convert-one"><i class="fas fa-arrow-right" aria-hidden="true"></i></button>' +
+                    '<button type="button" class="remove-btn" data-action="remove-one"><i class="fas fa-times" aria-hidden="true"></i></button>' +
+                '</div>';
+            // Build the full option list once; we only toggle which are usable.
+            const sel = row.querySelector('.conv-output');
+            ALL_OUTPUT_FORMATS.forEach(function (f) {
+                const o = document.createElement('option');
+                o.value = f.value; o.textContent = f.label;
+                sel.appendChild(o);
             });
-            scheduleEstimateRefresh();
+            return row;
+        }
+
+        function updateConvRow(row, item) {
+            row.dataset.id = item.id;
+
+            const icon = row.querySelector('.conv-icon');
+            icon.className = 'conv-icon fas ' + (item.type === 'application/pdf' ? 'fa-file-pdf'
+                : (isImageType(item.type) ? 'fa-file-image' : 'fa-file-lines'));
+            icon.style.color = item.type === 'application/pdf' ? 'var(--circuit)'
+                : (isImageType(item.type) ? 'var(--signal)' : 'var(--muted)');
+
+            const nameEl = row.querySelector('.conv-name');
+            nameEl.textContent = item.name;
+            nameEl.title = item.name;
+            row.querySelector('.conv-size').textContent = formatBytes(item.size);
+
+            const chip = row.querySelector('.conv-state');
+            const meta = STATE_LABELS[item.status];
+            if (meta) {
+                chip.hidden = false;
+                chip.dataset.state = item.status;
+                chip.innerHTML = '<i class="fas ' + meta.icon + '" aria-hidden="true"></i>';
+                chip.appendChild(document.createTextNode(meta.text));
+                chip.title = item.status === 'failed' && item.error ? item.error : meta.text;
+            } else {
+                chip.hidden = true;
+            }
+
+            const sel = row.querySelector('.conv-output');
+            const allowed = getOutputOptions(item.type);
+            const allowedValues = new Set(allowed.map(function (f) { return f.value; }));
+            for (let i = 0; i < sel.options.length; i++) {
+                const o = sel.options[i];
+                o.hidden = !allowedValues.has(o.value);
+                o.disabled = o.hidden;
+            }
+            sel.value = item.outputFormat;
+            sel.setAttribute('aria-label', 'Output format for ' + item.name);
+
+            const slider = row.querySelector('.row-q-slider');
+            const valEl = row.querySelector('.row-q-val');
+            const lossy = ['image/jpeg', 'image/webp'].indexOf(item.outputFormat) !== -1;
+            if (lossy) {
+                const q = item.quality || state.settings.quality;
+                slider.hidden = false;
+                slider.value = q;
+                slider.setAttribute('aria-label', 'Quality for ' + item.name);
+                valEl.textContent = q + '%';
+            } else {
+                slider.hidden = true;
+                valEl.textContent = '—';
+            }
+
+            const est = row.querySelector('.est-size');
+            const cached = estimateTextFor(item);
+            est.innerHTML = '';
+            if (cached) est.appendChild(cached);
+
+            const convBtn = row.querySelector('.row-convert');
+            convBtn.setAttribute('aria-label', 'Convert and download ' + item.name);
+            convBtn.disabled = !!batchRun.active;
+            row.querySelector('.remove-btn').setAttribute('aria-label', 'Remove ' + item.name + ' from the queue');
+        }
+
+        const conversionView = createVirtualList({
+            container: conversionList,
+            rowHeight: CONV_ROW_H,
+            maxHeight: CONV_MAX_H,
+            createNode: createConvRow,
+            updateNode: updateConvRow,
+            onRangeChange: function () { scheduleEstimateRefresh(); }
+        });
+
+        // ---- Delegated conversion-list interaction ---------------------------
+        conversionList.addEventListener('click', function (e) {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            const row = btn.closest('.conv-row');
+            if (!row) return;
+            const id = parseInt(row.dataset.id, 10);
+            if (btn.dataset.action === 'convert-one') convertSingleItem(id);
+            else if (btn.dataset.action === 'remove-one') removeConversionFile(id);
+        });
+
+        conversionList.addEventListener('change', function (e) {
+            if (!e.target.classList.contains('conv-output')) return;
+            const row = e.target.closest('.conv-row');
+            if (!row) return;
+            updateConversionOutput(parseInt(row.dataset.id, 10), e.target.value);
+        });
+
+        conversionList.addEventListener('input', function (e) {
+            if (!e.target.classList.contains('row-q-slider')) return;
+            const row = e.target.closest('.conv-row');
+            if (!row) return;
+            const item = findConversionItem(parseInt(row.dataset.id, 10));
+            if (!item) return;
+            item.quality = parseInt(e.target.value, 10);
+            row.querySelector('.row-q-val').textContent = item.quality + '%';
+            scheduleRowEstimate(item.id);
+        });
+
+        function findConversionItem(id) {
+            const a = state.conversionFiles;
+            for (let i = 0; i < a.length; i++) if (a[i].id === id) return a[i];
+            return null;
+        }
+
+        function renderConversionList() {
+            const empty = $('conversionEmpty');
+            if (empty) empty.hidden = state.conversionFiles.length > 0;
+            conversionView.setItems(state.conversionFiles);
         }
 
         function getOutputOptions(inputMime) {
-            const allFormats = [
-                { value: 'image/png', label: 'PNG' },
-                { value: 'image/jpeg', label: 'JPG' },
-                { value: 'image/webp', label: 'WebP' },
-                { value: 'image/bmp', label: 'BMP' },
-                { value: 'image/gif', label: 'GIF' },
-                { value: 'application/pdf', label: 'PDF' },
-                { value: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', label: 'DOCX' },
-                { value: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', label: 'XLSX' },
-                { value: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', label: 'PPTX' }
-            ];
             const isImage = isImageType(inputMime);
             const isPdf = inputMime === 'application/pdf';
             const isOffice = isOfficeType(inputMime);
-            if (isImage) return allFormats.filter(f => isImageType(f.value) || f.value === 'application/pdf');
-            if (isPdf) return allFormats.filter(f => isImageType(f.value) || f.value === 'application/pdf' || isOfficeType(f
-                .value));
-            if (isOffice) return allFormats.filter(f => f.value === 'application/pdf' || isImageType(f.value));
-            return allFormats;
+            if (isImage) return ALL_OUTPUT_FORMATS.filter(function (f) { return isImageType(f.value) || f.value === 'application/pdf'; });
+            if (isPdf) return ALL_OUTPUT_FORMATS.filter(function (f) { return isImageType(f.value) || f.value === 'application/pdf' || isOfficeType(f.value); });
+            if (isOffice) return ALL_OUTPUT_FORMATS.filter(function (f) { return f.value === 'application/pdf' || isImageType(f.value); });
+            return ALL_OUTPUT_FORMATS;
         }
 
         // ===== UPDATE FUNCTIONS =====
@@ -1667,6 +2515,8 @@
 
         function updateEmptyState() {
             const hasFiles = state.images.length > 0 || state.pdfs.length > 0 || state.conversionFiles.length > 0;
+            const bar = $('selectionBar');
+            if (bar) bar.hidden = !(state.images.length || state.pdfs.length);
             if (!hasFiles) {
                 emptyState.classList.remove('hidden');
                 fileGrid.classList.add('hidden');
@@ -1681,89 +2531,59 @@
         }
 
         // ===== ACTIONS =====
-        async function addToConversion(files) {
-            let added = 0;
-            for (const file of files) {
-                const id = generateId();
-                const ext = getFileExtension(file.name);
-                const mime = getMimeType(ext);
-                if (!mime || mime === 'application/octet-stream') {
-                    showToast(`Skipping ${file.name} (unknown type)`, 'warning');
-                    continue;
-                }
-                let defaultOutput = 'image/png';
-                if (mime === 'application/pdf') defaultOutput = 'image/jpeg';
-                else if (isImageType(mime)) defaultOutput = 'image/png';
-                else if (mime.includes('wordprocessingml')) defaultOutput = 'application/pdf';
-                else if (mime.includes('spreadsheetml')) defaultOutput = 'application/pdf';
-                else if (mime.includes('presentationml')) defaultOutput = 'application/pdf';
-                else if (mime === 'text/html') defaultOutput = 'application/pdf';
-                state.conversionFiles.push({
-                    id,
-                    file,
-                    name: file.name,
-                    size: file.size,
-                    type: mime,
-                    outputFormat: defaultOutput,
-                    quality: state.settings.quality,
-                    status: 'ready'
-                });
-                added++;
-            }
-            if (added) showToast(`Added ${added} file(s) to conversion queue`, 'success');
-            renderAll();
-        }
-
         // Push currently-selected grid files into the conversion box, then scroll to it.
-        async function addSelectedToConvert() {
-            const sel = [...state.selectedIds];
-            if (!sel.length) { showToast('Select files first.', 'error'); return; }
-            const picked = [...state.images, ...state.pdfs].filter(f => sel.includes(f.id)).map(f => f.file);
+        function addSelectedToConvert() {
+            if (!state.selectedIds.size) { showToast('Select files first.', 'error'); return; }
+            // Set lookup, not Array.includes - this used to be O(n^2) on 1000 files.
+            const picked = state.images.concat(state.pdfs)
+                .filter(f => state.selectedIds.has(f.id))
+                .map(f => f.file);
             if (!picked.length) { showToast('No convertible files selected.', 'error'); return; }
-            await addToConversion(picked);
+            addToConversion(picked);
             const box = document.getElementById('conversionSection');
             if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function removeConversionFile(id) {
+            const item = findConversionItem(id);
+            if (item) knownFiles.delete(dedupeKey(item.file));
             state.conversionFiles = state.conversionFiles.filter(f => f.id !== id);
-            renderAll();
+            updateCounts();
+            renderConversionList();
+            updateConvertHints();
+            updateEmptyState();
+            updateBulkBar();
+            if (item) announce(item.name + ' removed from the queue.');
         }
 
         function updateConversionOutput(id, format) {
-            const item = state.conversionFiles.find(f => f.id === id);
-            if (item) { item.outputFormat = format;
-                renderAll(); }
+            const item = findConversionItem(id);
+            if (!item) return;
+            item.outputFormat = format;
+            // Only this row changed - no need to rebuild anything else.
+            conversionView.refreshItem(id);
+            scheduleRowEstimate(id);
         }
 
-        function updateConversionQuality(id, quality) {
-            const item = state.conversionFiles.find(f => f.id === id);
-            if (item) { item.quality = quality;
-                renderAll(); }
-        }
 
         // ===== DELETE, DOWNLOAD, PREVIEW =====
-        function deleteFile(type, id) {
-            if (type === 'image') {
-                const idx = state.images.findIndex(i => i.id === id);
-                if (idx > -1) {
-                    urlRegistry.revoke(state.images[idx].thumbnail);
-                    state.images.splice(idx, 1);
-                    state.selectedIds.delete(id);
-                    showToast('Image removed', 'info');
-                }
-            } else {
-                const idx = state.pdfs.findIndex(p => p.id === id);
-                if (idx > -1) { state.pdfs.splice(idx, 1);
-                    state.selectedIds.delete(id);
-                    showToast('PDF removed', 'info'); }
-            }
+        function deleteFile(kind, id) {
+            const arr = kind === 'pdf' ? state.pdfs : state.images;
+            const idx = arr.findIndex(function (x) { return x.id === id; });
+            if (idx < 0) return;
+            const item = arr[idx];
+            releaseItemResources(item);
+            knownFiles.delete(dedupeKey(item.file));
+            arr.splice(idx, 1);
+            state.selectedIds.delete(id);
             renderAll();
+            showToast((kind === 'pdf' ? 'PDF' : 'Image') + ' removed', 'info');
+            announce(item.name + ' removed.');
         }
 
-        async function downloadFile(type, id) {
-            let file = type === 'image' ? state.images.find(i => i.id === id)?.file : state.pdfs.find(p => p.id === id)
-                ?.file;
+        async function downloadFile(kind, id) {
+            const item = findItem(kind, id);
+            const file = item && item.file;
             if (!file) return;
             const url = urlRegistry.create(file);
             const a = document.createElement('a');
@@ -1776,8 +2596,18 @@
             showToast(`Downloading ${file.name}`, 'success');
         }
 
+        let previewObjectUrl = null;
+        function closePreviewResources() {
+            if (previewObjectUrl) { URL.revokeObjectURL(previewObjectUrl); previewObjectUrl = null; }
+            if (previewPdfDoc) { try { previewPdfDoc.destroy(); } catch (e) {} previewPdfDoc = null; }
+            const img = $('previewImage');
+            if (img) img.removeAttribute('src');
+            const c = $('previewPdfContainer');
+            if (c) c.innerHTML = '';
+        }
+
         function openPreview(type, id) {
-            const file = type === 'image' ? state.images.find(i => i.id === id) : state.pdfs.find(p => p.id === id);
+            const file = findItem(type, id);
             if (!file) return;
             state.preview.type = type;
             state.preview.id = id;
@@ -1796,7 +2626,10 @@
             wrapper.style.transform = 'scale(1) translate(0px, 0px)';
             if (type === 'image') {
                 img.classList.remove('hidden');
-                img.src = file.thumbnail;
+                // Full-resolution URL, created only while the modal is open.
+                if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+                previewObjectUrl = URL.createObjectURL(file.file);
+                img.src = previewObjectUrl;
                 container.classList.add('hidden');
                 $('pdfNavControls').classList.add('hidden');
                 img.style.transform = 'scale(1) translate(0px, 0px)';
@@ -1813,8 +2646,7 @@
             const container = $('previewPdfContainer');
             container.innerHTML = '';
             try {
-                const buf = await file.file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+                const pdf = await openPdfDoc(file.file);
                 const page = await pdf.getPage(1);
                 const viewport = page.getViewport({ scale: 1.0 });
                 const canvas = document.createElement('canvas');
@@ -1836,10 +2668,16 @@
                     await p.render({ canvasContext: ctx, viewport: v }).promise;
                     $('pdfPageInfo').textContent = `${num} / ${pdf.numPages}`;
                 };
+                previewPdfDoc = pdf;
             } catch (e) {
-                container.innerHTML = `<div class="text-slate-400"><i class="fas fa-exclamation-triangle"></i> Could not load preview.</div>`;
+                container.textContent = '';
+                const warn = document.createElement('div');
+                warn.style.color = 'var(--muted)';
+                warn.textContent = 'Could not load this preview.';
+                container.appendChild(warn);
             }
         }
+        let previewPdfDoc = null;
 
         // ===== PREVIEW ZOOM / PAN =====
         let zoomLevel = 1;
@@ -1887,50 +2725,177 @@
             isPanning = false;
             $('previewContent').style.cursor = 'default';
         });
-        $('previewClose').onclick = () => previewModal.classList.add('hidden');
-        previewModal.addEventListener('click', (e) => { if (e.target === previewModal) previewModal.classList.add('hidden'); });
+        function closePreview() {
+            previewModal.classList.add('hidden');
+            closePreviewResources();
+        }
+        $('previewClose').onclick = closePreview;
+        previewModal.addEventListener('click', (e) => { if (e.target === previewModal) closePreview(); });
+        previewModal.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePreview(); });
 
-        // ===== PROCESSING MODAL =====
-        function startProcessing(title, totalSteps = 1) {
+        // ======================================================================
+        //  BATCH RUN + PROGRESS MODAL
+        //  One batch at a time. The modal owns the AbortController, so Cancel
+        //  really stops the run instead of just hiding the dialog.
+        // ======================================================================
+        const batchRun = { active: false, controller: null, title: '' };
+
+        function batchSignal() { return batchRun.controller ? batchRun.controller.signal : null; }
+        function batchCancelled() { return !!(batchRun.controller && batchRun.controller.signal.aborted); }
+
+        /** Prevents a second conversion being launched on top of a running one. */
+        function guardBatch() {
+            if (batchRun.active) {
+                showToast('Another job is already running. Cancel it first.', 'warning');
+                return false;
+            }
+            return true;
+        }
+
+        function setBatchLocked(locked) {
+            [bulkConvertBtn, $('addToConvertBtn'), $('addFolderBtn'), $('convertSelectedBtn'),
+             $('deleteSelectedBtn'), $('selectAllBtn')].forEach(function (b) {
+                if (b) b.disabled = locked;
+            });
+            document.querySelectorAll('.tool-btn').forEach(function (b) { if (locked) b.disabled = true; });
+            dropZone.classList.toggle('is-busy', locked);
+            if (!locked) updateToolbar();
+            conversionView.refresh();
+        }
+
+        function startProcessing(title, totalSteps) {
+            totalSteps = totalSteps || 1;
+            batchRun.active = true;
+            batchRun.title = title;
+            batchRun.controller = (typeof AbortController === 'function') ? new AbortController() : null;
             processingModal.classList.remove('hidden');
-            $('processingIcon').innerHTML = '<i class="fas fa-circle-notch text-xl animate-spin"></i>';
+            processingModal.setAttribute('role', 'dialog');
+            processingModal.setAttribute('aria-modal', 'true');
+            $('processingIcon').innerHTML = '<i class="fas fa-circle-notch text-xl animate-spin" aria-hidden="true"></i>';
             $('processingTitle').textContent = title;
-            $('processingFile').textContent = `0 / ${totalSteps}`;
-            $('processingStatus').textContent = 'Initializing...';
+            $('processingFile').textContent = '0 / ' + totalSteps;
+            $('processingStatus').textContent = 'Starting…';
             $('processingProgressFill').style.width = '0%';
             $('processingProgressText').textContent = '0%';
             $('processingCancel').classList.remove('hidden');
+            $('processingCancel').disabled = false;
+            $('processingCancel').textContent = 'Cancel';
             $('processingRetry').classList.add('hidden');
             $('processingDone').classList.add('hidden');
+            const stats = $('batchStats');
+            if (stats) {
+                stats.hidden = totalSteps < 2;
+                $('statDone').textContent = '0';
+                $('statLeft').textContent = totalSteps;
+                $('statFailed').textContent = '0';
+            }
+            const errs = $('batchErrors');
+            if (errs) { errs.hidden = true; errs.innerHTML = ''; }
+            setBatchLocked(true);
+            $('processingCancel').focus();
+            announce(title);
         }
 
-        function updateProcessing(step, total, status = 'Processing...', currentFile = '') {
-            const progress = Math.min(100, Math.round((step / (total || 1)) * 100));
+        /** Progress callback shape matches what runBatch emits. */
+        function updateProcessing(step, total, status, currentFile) {
+            total = total || 1;
+            const progress = Math.min(100, Math.round((step / total) * 100));
             $('processingProgressFill').style.width = progress + '%';
             $('processingProgressText').textContent = progress + '%';
-            $('processingFile').textContent = currentFile || `${step} / ${total || 1}`;
-            $('processingStatus').textContent = status;
+            $('processingFile').textContent = currentFile || (step + ' / ' + total);
+            $('processingStatus').textContent = status || 'Processing…';
         }
 
-        function finishProcessing(error = false) {
+        function onBatchProgress(p) {
+            updateProcessing(p.done, p.total, p.done + ' of ' + p.total + ' processed');
+            const stats = $('batchStats');
+            if (stats && !stats.hidden) {
+                $('statDone').textContent = p.done - p.failed;
+                $('statLeft').textContent = Math.max(0, p.total - p.done);
+                $('statFailed').textContent = p.failed;
+            }
+            announce(p.done + ' of ' + p.total + ' files processed');
+        }
+
+        function showBatchErrors(errors) {
+            const ul = $('batchErrors');
+            if (!ul || !errors || !errors.length) return;
+            ul.hidden = false;
+            ul.innerHTML = '';
+            errors.slice(0, 20).forEach(function (e) {
+                const li = document.createElement('li');
+                const name = document.createElement('span');
+                name.className = 'bad-name';
+                name.textContent = e.name;               // textContent, never innerHTML
+                li.appendChild(name);
+                li.appendChild(document.createTextNode(' — ' + e.message));
+                ul.appendChild(li);
+            });
+            if (errors.length > 20) {
+                const li = document.createElement('li');
+                li.textContent = '…and ' + (errors.length - 20) + ' more';
+                ul.appendChild(li);
+            }
+        }
+
+        /**
+         * Ends the run. `summary` is optional: { ok, failed, cancelled, errors }.
+         */
+        function finishProcessing(error, summary) {
+            batchRun.active = false;
+            setBatchLocked(false);
+            $('processingCancel').classList.add('hidden');
+            const cancelled = summary && summary.cancelled;
+            const failed = summary ? summary.failed : 0;
+
             if (error) {
                 $('processingStatus').textContent = 'Failed';
-                $('processingIcon').innerHTML = '<i class="fas fa-times-circle text-3xl text-rose-500"></i>';
+                $('processingIcon').innerHTML = '<i class="fas fa-circle-exclamation text-3xl" style="color:#D85A30;" aria-hidden="true"></i>';
                 $('processingRetry').classList.remove('hidden');
-            } else {
-                $('processingStatus').textContent = 'Completed!';
-                $('processingIcon').innerHTML = '<i class="fas fa-check-circle text-3xl text-emerald-500"></i>';
                 $('processingDone').classList.remove('hidden');
-                setTimeout(() => { processingModal.classList.add('hidden'); }, 2000);
+            } else if (cancelled) {
+                $('processingStatus').textContent = 'Cancelled';
+                $('processingIcon').innerHTML = '<i class="fas fa-ban text-3xl" style="color: var(--muted);" aria-hidden="true"></i>';
+                $('processingDone').classList.remove('hidden');
+            } else if (failed) {
+                $('processingStatus').textContent = 'Finished with ' + failed + ' failure' + (failed === 1 ? '' : 's');
+                $('processingIcon').innerHTML = '<i class="fas fa-circle-check text-3xl" style="color: var(--circuit);" aria-hidden="true"></i>';
+                $('processingDone').classList.remove('hidden');
+            } else {
+                $('processingStatus').textContent = 'Completed';
+                $('processingIcon').innerHTML = '<i class="fas fa-circle-check text-3xl" style="color: var(--circuit);" aria-hidden="true"></i>';
+                $('processingDone').classList.remove('hidden');
+                setTimeout(function () { if (!batchRun.active) closeProcessing(); }, 1800);
             }
-            $('processingCancel').classList.add('hidden');
+            if (summary && summary.errors) showBatchErrors(summary.errors);
+            announce($('processingStatus').textContent);
+            batchRun.controller = null;
         }
 
-        $('processingCancel').addEventListener('click', () => { showToast('Process cancelled.', 'warning');
-            finishProcessing(true); });
-        $('processingRetry').addEventListener('click', () => { showToast('Retry clicked - feature coming soon.', 'info');
-            finishProcessing(); });
-        $('processingDone').addEventListener('click', () => { processingModal.classList.add('hidden'); });
+        function closeProcessing() {
+            processingModal.classList.add('hidden');
+            const errs = $('batchErrors');
+            if (errs) { errs.hidden = true; errs.innerHTML = ''; }
+        }
+
+        $('processingCancel').addEventListener('click', function () {
+            if (batchRun.controller) batchRun.controller.abort();
+            $('processingCancel').disabled = true;
+            $('processingCancel').textContent = 'Stopping…';
+            $('processingStatus').textContent = 'Stopping after the current file…';
+            announce('Cancelling.');
+        });
+        $('processingDone').addEventListener('click', closeProcessing);
+        $('processingRetry').addEventListener('click', function () {
+            closeProcessing();
+            if (lastRetry) lastRetry();
+        });
+        processingModal.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            if (batchRun.active && batchRun.controller) batchRun.controller.abort();
+            else closeProcessing();
+        });
+        let lastRetry = null;
 
         // ===== DOWNLOAD HELPER =====
         function downloadBlob(data, filename, mime) {
@@ -1946,18 +2911,47 @@
         }
 
         // ===== UPLOAD HANDLERS =====
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault();
-            dropZone.classList.add('dragover'); });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            if (e.dataTransfer.files.length) {
-                const target = state.activeTab === 'convert' ? 'convert' : 'auto';
-                handleFiles(e.dataTransfer.files, target);
-            }
-        });
+        // Dropping a file anywhere else must not navigate the page away.
+        window.addEventListener('dragover', (e) => e.preventDefault());
+        window.addEventListener('drop', (e) => e.preventDefault());
+
+        /**
+         * Shared drop wiring. Drag events only toggle a class - they never kick
+         * off any processing, so dragging over the page stays free.
+         */
+        function wireDropZone(el, target) {
+            if (!el) return;
+            let depth = 0;
+            el.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                depth++;
+                if (batchRun.active) { el.classList.add('is-busy'); return; }
+                el.classList.add('dragover');
+            });
+            el.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+            el.addEventListener('dragleave', () => {
+                depth = Math.max(0, depth - 1);
+                if (depth === 0) el.classList.remove('dragover', 'is-busy');
+            });
+            el.addEventListener('drop', (e) => {
+                e.preventDefault();
+                depth = 0;
+                el.classList.remove('dragover', 'is-busy');
+                const files = e.dataTransfer && e.dataTransfer.files;
+                if (!files || !files.length) {
+                    el.classList.add('is-rejected');
+                    setTimeout(() => el.classList.remove('is-rejected'), 900);
+                    showToast('That drop contained no files.', 'warning');
+                    return;
+                }
+                handleFiles(files, target || (state.activeTab === 'convert' ? 'convert' : 'auto'));
+            });
+        }
+        wireDropZone(dropZone);
         dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+        });
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length) {
                 const target = state.activeTab === 'convert' ? 'convert' : 'auto';
@@ -1975,115 +2969,172 @@
             }
         });
 
-        async function handleFiles(files, target = 'auto') {
-            const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
-            const validFiles = [];
-            for (const file of files) {
-                if (file.size > MAX_FILE_SIZE) {
-                    showToast(`File too large (max 50 MB): ${file.name}`, 'error');
-                    continue;
-                }
-                validFiles.push(file);
-            }
-            files = validFiles;
+        // ======================================================================
+        //  IMPORT PIPELINE
+        //  Importing does NO image work. We read metadata only, in chunks that
+        //  yield to the browser between them, so selecting 1000 files never
+        //  blocks the UI. Thumbnails are produced later, on demand, for the
+        //  cards that are actually on screen.
+        // ======================================================================
+
+        /** Strips directory parts and control characters from a filename. */
+        function sanitizeFilename(name) {
+            return String(name || 'file')
+                .split(/[\\/]/).pop()
+                .split('').filter(function (c) { var k = c.charCodeAt(0); return k > 31 && k !== 127; }).join('')
+                .slice(0, 180) || 'file';
+        }
+
+        const importBanner = (function () {
+            const el = $('importBanner');
+            const bar = el ? el.querySelector('.bar > i') : null;
+            const label = el ? el.querySelector('.import-label') : null;
+            return {
+                show: function (total) {
+                    if (!el || total < PERF.bigBatch) return;
+                    el.hidden = false;
+                    if (label) label.textContent = 'Adding ' + total + ' files…';
+                    if (bar) bar.style.width = '0%';
+                },
+                progress: function (done, total) {
+                    if (!el || el.hidden) return;
+                    if (bar) bar.style.width = Math.round((done / total) * 100) + '%';
+                    if (label) label.textContent = 'Adding ' + done + ' of ' + total + ' files…';
+                },
+                hide: function () { if (el) el.hidden = true; }
+            };
+        })();
+
+        /** Key used to skip files that are already in the app. */
+        function dedupeKey(file) {
+            return sanitizeFilename(file.name) + '|' + file.size + '|' + (file.lastModified || 0);
+        }
+        const knownFiles = new Set();
+
+        function classify(file) {
+            const mime = getMimeType(getFileExtension(file.name));
+            if (!mime || mime === 'application/octet-stream') return null;
+            if (mime.indexOf('image/') === 0) return { mime: mime, bucket: 'image' };
+            if (mime === 'application/pdf') return { mime: mime, bucket: 'pdf' };
+            if (isOfficeType(mime) || mime === 'text/html') return { mime: mime, bucket: 'other' };
+            return null;
+        }
+
+        async function handleFiles(fileList, target) {
+            target = target || 'auto';
+            const files = Array.prototype.slice.call(fileList || []);
             if (!files.length) return;
 
-            if (target === 'convert' || (target === 'auto' && state.activeTab === 'convert')) {
-                await addToConversion(files);
-                return;
-            }
-            const imageFiles = [],
-                pdfFiles = [],
-                otherFiles = [];
-            for (const file of files) {
-                const ext = getFileExtension(file.name);
-                const mime = getMimeType(ext);
-                if (mime.startsWith('image/')) imageFiles.push(file);
-                else if (mime === 'application/pdf') pdfFiles.push(file);
-                else if (isOfficeType(mime)) otherFiles.push(file);
-                else showToast(`Skipping unsupported: ${file.name}`, 'warning');
-            }
-            if (imageFiles.length) await addImages(imageFiles);
-            if (pdfFiles.length) await addPdfs(pdfFiles);
-            if (otherFiles.length) await addToConversion(otherFiles);
-            if (!imageFiles.length && !pdfFiles.length && !otherFiles.length) showToast('Unsupported file type.', 'error');
-            renderAll();
-        }
+            importBanner.show(files.length);
+            dropZone.classList.add('is-busy');
 
-        async function addImages(files) {
-            for (const file of files) {
-                const id = generateId(),
-                    thumbnail = urlRegistry.create(file);
-                let w = 0,
-                    h = 0;
-                try {
-                    const img = new Image();
-                    await new Promise((res, rej) => {
-                        img.onload = () => { w = img.naturalWidth;
-                            h = img.naturalHeight;
-                            res(); };
-                        img.onerror = rej;
-                        img.src = thumbnail;
-                    });
-                } catch (e) { /* ignore */ }
-                state.images.push({
-                    id,
-                    file,
-                    name: file.name,
-                    size: file.size,
-                    type: file.type,
-                    thumbnail,
-                    width: w,
-                    height: h,
-                    status: 'ready'
-                });
-            }
-            showToast(`Added ${files.length} image(s)`, 'success');
-        }
+            const images = [], pdfs = [], others = [];
+            let tooBig = 0, unsupported = 0, duplicates = 0, empty = 0;
+            const toConvert = (target === 'convert' || (target === 'auto' && state.activeTab === 'convert'));
 
-        async function addPdfs(files) {
-            for (const file of files) {
-                const id = generateId();
-                let pages = 0,
-                    thumbnail = null;
-                try {
-                    const pdf = await openPdfDoc(file);
-                    pages = pdf.numPages;
-                    const page = await pdf.getPage(1);
-                    const viewport = page.getViewport({ scale: 0.5 });
-                    const canvas = document.createElement('canvas');
-                    canvas.width = viewport.width;
-                    canvas.height = viewport.height;
-                    const ctx = canvas.getContext('2d');
-                    await page.render({ canvasContext: ctx, viewport }).promise;
-                    thumbnail = canvas.toDataURL('image/jpeg', 0.7);
-                } catch (e) {
-                    showToast(`Failed to parse PDF: ${file.name}`, 'error');
-                    thumbnail = null;
-                    pages = 0;
+            for (let i = 0; i < files.length; i++) {
+                // Yield between chunks so the browser can paint and stay responsive.
+                if (i > 0 && i % PERF.ingestChunk === 0) {
+                    importBanner.progress(i, files.length);
+                    await nextFrame();
                 }
-                state.pdfs.push({
-                    id,
-                    file,
-                    name: file.name,
-                    size: file.size,
-                    type: 'application/pdf',
-                    pages,
-                    thumbnail,
-                    status: 'ready'
-                });
+                const file = files[i];
+                if (!file || file.size === 0) { empty++; continue; }
+                if (file.size > PERF.maxFileSize) { tooBig++; continue; }
+                const key = dedupeKey(file);
+                if (knownFiles.has(key)) { duplicates++; continue; }
+                const kind = classify(file);
+                if (!kind) { unsupported++; continue; }
+                knownFiles.add(key);
+                if (toConvert || kind.bucket === 'other') others.push({ file: file, mime: kind.mime });
+                else if (kind.bucket === 'image') images.push({ file: file, mime: kind.mime });
+                else pdfs.push({ file: file, mime: kind.mime });
             }
-            showToast(`Added ${files.length} PDF(s)`, 'success');
+
+            importBanner.progress(files.length, files.length);
+
+            images.forEach(function (e) {
+                state.images.push({
+                    id: generateId(), kind: 'image', file: e.file,
+                    name: sanitizeFilename(e.file.name), size: e.file.size, type: e.mime,
+                    thumbBlob: null, width: 0, height: 0, status: 'ready'
+                });
+            });
+            pdfs.forEach(function (e) {
+                state.pdfs.push({
+                    id: generateId(), kind: 'pdf', file: e.file,
+                    name: sanitizeFilename(e.file.name), size: e.file.size, type: 'application/pdf',
+                    thumbBlob: null, pages: 0, status: 'ready'
+                });
+            });
+            if (others.length) addConversionEntries(others);
+
+            importBanner.hide();
+            dropZone.classList.remove('is-busy');
+            renderAll();
+
+            const added = images.length + pdfs.length + others.length;
+            const notes = [];
+            if (duplicates) notes.push(duplicates + ' duplicate' + (duplicates === 1 ? '' : 's') + ' skipped');
+            if (unsupported) notes.push(unsupported + ' unsupported');
+            if (tooBig) notes.push(tooBig + ' over 50 MB');
+            if (empty) notes.push(empty + ' empty');
+
+            if (added) {
+                showToast('Added ' + added + ' file' + (added === 1 ? '' : 's') +
+                    (notes.length ? ' · ' + notes.join(', ') : ''), 'success');
+                announce('Added ' + added + ' files. ' + (notes.length ? notes.join(', ') + '.' : ''));
+            } else {
+                showToast(notes.length ? 'Nothing added — ' + notes.join(', ') : 'No supported files found.', 'warning');
+                announce('No files were added.');
+            }
+        }
+
+        /** Pushes already-classified entries into the conversion queue. */
+        function addConversionEntries(entries) {
+            entries.forEach(function (e) {
+                const mime = e.mime;
+                let defaultOutput = 'image/png';
+                if (mime === 'application/pdf') defaultOutput = 'image/jpeg';
+                else if (isImageType(mime)) defaultOutput = 'image/png';
+                else defaultOutput = 'application/pdf';
+                state.conversionFiles.push({
+                    id: generateId(), kind: 'conv', file: e.file,
+                    name: sanitizeFilename(e.file.name), size: e.file.size, type: mime,
+                    outputFormat: defaultOutput, quality: state.settings.quality, status: 'ready'
+                });
+            });
+        }
+
+        /** Public entry point used by the grid buttons and "Add selected". */
+        function addToConversion(files) {
+            const entries = [];
+            let skipped = 0;
+            Array.prototype.slice.call(files).forEach(function (file) {
+                const kind = classify(file);
+                if (!kind) { skipped++; return; }
+                entries.push({ file: file, mime: kind.mime });
+            });
+            if (entries.length) addConversionEntries(entries);
+            if (skipped) showToast(skipped + ' file' + (skipped === 1 ? '' : 's') + ' skipped (unsupported type)', 'warning');
+            if (entries.length) {
+                showToast('Added ' + entries.length + ' file' + (entries.length === 1 ? '' : 's') + ' to the conversion queue', 'success');
+                announce(entries.length + ' files added to the conversion queue.');
+            }
+            renderAll();
         }
 
         // ===== SINGLE-FILE CONVERSION =====
         // Convert one conversion-list item to its chosen format and download it directly.
         async function convertSingleItem(id) {
-            const item = state.conversionFiles.find(f => f.id === id);
+            const item = findConversionItem(id);
             if (!item) return;
             const targetFormat = item.outputFormat;
             if (!targetFormat) { showToast('Choose an output format first.', 'error'); return; }
-            startProcessing(`Converting ${item.name}…`, 1);
+            if (!guardBatch()) return;
+            lastRetry = function () { convertSingleItem(id); };
+            startProcessing('Converting ' + item.name + '…', 1);
+            setItemStatus(item, 'working');
             try {
                 const result = await produceConvertedBlob(item, targetFormat);
                 if (result && result.multi) {
@@ -2096,19 +3147,23 @@
                     const zipBlob = await zip.generateAsync({ type: 'blob' });
                     downloadBlob(zipBlob, `${result.baseName}_${result.ext}_pages.zip`, 'application/zip');
                     updateProcessing(1, 1, 'Done', item.name);
-                    showToast(`Converted ${item.name} → ${result.blobs.length} ${result.ext.toUpperCase()} pages (zip)`, 'success');
-                    finishProcessing();
+                    showToast('Converted ' + item.name + ' → ' + result.blobs.length + ' ' + result.ext.toUpperCase() + ' pages (zip)', 'success');
+                    setItemStatus(item, 'done');
+                    finishProcessing(false, { failed: 0, errors: [] });
                     return;
                 }
                 const ext = formatToExt(targetFormat);
                 const name = item.name.replace(/\.[^.]+$/, '') + '.' + ext;
                 downloadBlob(result, name, targetFormat);
                 updateProcessing(1, 1, 'Done', item.name);
-                showToast(`Converted ${item.name} → ${ext.toUpperCase()}`, 'success');
-                finishProcessing();
+                showToast('Converted ' + item.name + ' → ' + ext.toUpperCase(), 'success');
+                setItemStatus(item, 'done');
+                finishProcessing(false, { failed: 0, errors: [] });
             } catch (e) {
-                showToast(`Failed to convert ${item.name}: ${e.message}`, 'error');
-                finishProcessing(true);
+                const msg = friendlyError(e);
+                setItemStatus(item, 'failed', msg);
+                showToast('Could not convert ' + item.name + ': ' + msg, 'error');
+                finishProcessing(true, { errors: [{ name: item.name, message: msg }] });
             }
         }
 
@@ -2179,22 +3234,6 @@
             }
         }
 
-        async function pdfPageToImage(item, format, quality) {
-            const pdf = await openPdfDoc(item.file);
-            const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 2 });
-            const canvas = document.createElement('canvas');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            await page.render({ canvasContext: ctx, viewport }).promise;
-            const blob = await new Promise(res => canvas.toBlob(res, format, quality));
-            if (!blob) throw new Error('Canvas toBlob failed');
-            return blob;
-        }
-
         async function pdfToText(item) {
             const pdf = await openPdfDoc(item.file);
             let out = '';
@@ -2219,156 +3258,306 @@
             return (mime.split('/')[1] || 'bin').replace(/\+.*/, '');
         }
 
-        // ===== LIVE SIZE ESTIMATION (reacts to the quality slider) =====
-        // For raster images we actually re-encode at the chosen quality to get a true
-        // byte count. Cached per (id|format|quality) so the slider stays responsive.
-        const sizeEstimateCache = new Map();
+        // ======================================================================
+        //  LIVE SIZE ESTIMATION
+        //  Estimating means actually re-encoding the file, so it is strictly
+        //  limited to rows that are ON SCREEN, capped per pass, cancelled by a
+        //  token when anything changes, and skipped entirely during a batch run.
+        //  (The old code re-encoded every file in the queue after every render.)
+        // ======================================================================
+        const sizeEstimateCache = createLru(PERF.estimateCacheSize);
         let estimateRunToken = 0;
+        const estimatePool = createPool(2);
 
-        function estimateKey(item, quality) {
-            return `${item.id}|${item.outputFormat}|${Math.round(quality)}`;
+        function estimateKey(item) {
+            const q = item.quality || state.settings.quality;
+            return item.id + '|' + item.outputFormat + '|' + Math.round(q);
         }
 
-        async function estimateOutputSize(item) {
-            const quality = (item.quality || state.settings.quality);
-            const key = estimateKey(item, quality);
-            if (sizeEstimateCache.has(key)) return sizeEstimateCache.get(key);
+        /** Returns a ready-made node from cache, or null if not estimated yet. */
+        function estimateTextFor(item) {
+            const bytes = sizeEstimateCache.get(estimateKey(item));
+            if (bytes === undefined || bytes === null) return null;
+            const span = document.createElement('span');
+            const delta = bytes - item.size;
+            const pct = item.size ? Math.round((delta / item.size) * 100) : 0;
+            const arrow = delta < 0 ? '↓' : (delta > 0 ? '↑' : '');
+            const b = document.createElement('span');
+            b.className = 'est-bytes';
+            b.textContent = '→ ' + formatBytes(bytes);
+            span.appendChild(b);
+            if (pct !== 0) {
+                const d = document.createElement('span');
+                d.className = 'est-delta ' + (delta < 0 ? 'down' : 'up');
+                d.textContent = ' ' + arrow + Math.abs(pct) + '%';
+                span.appendChild(d);
+            }
+            return span;
+        }
 
-            let bytes = null;
+        async function computeEstimate(item) {
+            const quality = (item.quality || state.settings.quality);
             const fmt = item.outputFormat;
-            const isImgOut = ['image/jpeg','image/png','image/webp','image/bmp','image/gif'].includes(fmt);
-            try {
-                if (item.type === 'application/pdf' && isImgOut) {
-                    // estimate = first page rendered × page count (avoids rendering every page on each tick)
-                    const pdf = await openPdfDoc(item.file);
+            const isImgOut = ['image/jpeg', 'image/png', 'image/webp', 'image/bmp', 'image/gif'].indexOf(fmt) !== -1;
+            if (item.type === 'application/pdf' && isImgOut) {
+                // First page rendered x page count - never rasterise the whole doc.
+                const pdf = await openPdfDoc(item.file);
+                let canvas = null;
+                try {
                     const n = pdf.numPages;
                     const page = await pdf.getPage(1);
-                    const viewport = page.getViewport({ scale: 2 });
-                    const canvas = document.createElement('canvas');
-                    canvas.width = viewport.width; canvas.height = viewport.height;
+                    const viewport = page.getViewport({ scale: 1.5 });
+                    canvas = document.createElement('canvas');
+                    canvas.width = Math.round(viewport.width);
+                    canvas.height = Math.round(viewport.height);
                     const ctx = canvas.getContext('2d');
                     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    await page.render({ canvasContext: ctx, viewport }).promise;
-                    const q = ['image/jpeg','image/webp'].includes(fmt) ? quality / 100 : 1;
+                    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                    const q = ['image/jpeg', 'image/webp'].indexOf(fmt) !== -1 ? quality / 100 : 1;
                     const blob = await new Promise(res => canvas.toBlob(res, fmt, q));
-                    bytes = blob ? blob.size * n : null;
-                } else if (['image/jpeg','image/webp'].includes(fmt) && isImageType(item.type)) {
-                    const blob = await convertToImage(item, fmt, quality / 100);
-                    bytes = blob.size;
-                } else if (['image/png','image/bmp','image/gif'].includes(fmt) && isImageType(item.type)) {
-                    const blob = await convertToImage(item, fmt, 1);
-                    bytes = blob.size;
-                } else {
-                    const blob = await produceConvertedBlob(item, fmt);
-                    bytes = (blob && blob.size != null) ? blob.size : null;
+                    return blob ? blob.size * n : null;
+                } finally {
+                    if (canvas) { canvas.width = canvas.height = 0; }
+                    try { await pdf.destroy(); } catch (e) {}
                 }
-            } catch (e) {
-                bytes = null;
             }
-            sizeEstimateCache.set(key, bytes);
-            return bytes;
+            if (isImgOut && isImageType(item.type)) {
+                const q = ['image/jpeg', 'image/webp'].indexOf(fmt) !== -1 ? quality / 100 : 1;
+                const blob = await encodeImageFile(item.file, fmt, q);
+                return blob.size;
+            }
+            // Anything else (office docs, PDF output) is too expensive to guess.
+            return null;
         }
 
-        // Recompute the little "→ size" readouts in every conversion row.
-        async function refreshSizeEstimates() {
+        /**
+         * Estimates the rows currently mounted in the conversion list. Capped and
+         * token-guarded so scrolling or changing quality abandons stale work.
+         */
+        function refreshSizeEstimates() {
+            if (batchRun.active) return;
             const token = ++estimateRunToken;
-            const rows = document.querySelectorAll('.conv-row');
-            for (const row of rows) {
-                const id = parseInt(row.dataset.id);
-                const item = state.conversionFiles.find(f => f.id === id);
-                const out = row.querySelector('.est-size');
-                if (!item || !out) continue;
-                out.textContent = '…';
-                const bytes = await estimateOutputSize(item);
-                if (token !== estimateRunToken) return; // a newer run superseded us
-                if (bytes == null) { out.textContent = ''; continue; }
-                const delta = bytes - item.size;
-                const pct = item.size ? Math.round((delta / item.size) * 100) : 0;
-                const arrow = delta < 0 ? '↓' : (delta > 0 ? '↑' : '');
-                out.innerHTML = `→ <span class="est-bytes">${formatBytes(bytes)}</span>` +
-                    (pct !== 0 ? ` <span class="est-delta ${delta<0?'down':'up'}">${arrow}${Math.abs(pct)}%</span>` : '');
-            }
+            estimatePool.clear();
+            const rows = conversionView.visibleItems().slice(0, PERF.maxLiveEstimates);
+            rows.forEach(function (item) {
+                const key = estimateKey(item);
+                if (sizeEstimateCache.has(key)) { conversionView.refreshItem(item.id); return; }
+                estimatePool.run(async function () {
+                    if (token !== estimateRunToken) return;
+                    let bytes = null;
+                    try { bytes = await computeEstimate(item); } catch (e) { bytes = null; }
+                    if (token !== estimateRunToken) return;
+                    sizeEstimateCache.set(key, bytes);
+                    conversionView.refreshItem(item.id);
+                });
+            });
         }
 
         let estimateDebounce = null;
         function scheduleEstimateRefresh() {
             clearTimeout(estimateDebounce);
-            estimateDebounce = setTimeout(refreshSizeEstimates, 220);
+            estimateDebounce = setTimeout(refreshSizeEstimates, 240);
         }
 
-        // Re-estimate a single row's output size live as its slider moves.
         const rowEstimateTimers = {};
         function scheduleRowEstimate(id) {
             clearTimeout(rowEstimateTimers[id]);
-            rowEstimateTimers[id] = setTimeout(() => refreshOneRowEstimate(id), 180);
+            rowEstimateTimers[id] = setTimeout(function () { refreshOneRowEstimate(id); }, 220);
         }
         async function refreshOneRowEstimate(id) {
-            const item = state.conversionFiles.find(f => f.id === id);
-            const row = document.querySelector(`.conv-row[data-id="${id}"]`);
-            if (!item || !row) return;
-            const out = row.querySelector('.est-size');
-            if (!out) return;
-            out.textContent = '…';
-            const bytes = await estimateOutputSize(item);
-            if (bytes == null) { out.textContent = ''; return; }
-            const delta = bytes - item.size;
-            const pct = item.size ? Math.round((delta / item.size) * 100) : 0;
-            const arrow = delta < 0 ? '↓' : (delta > 0 ? '↑' : '');
-            out.innerHTML = `→ <span class="est-bytes">${formatBytes(bytes)}</span>` +
-                (pct !== 0 ? ` <span class="est-delta ${delta<0?'down':'up'}">${arrow}${Math.abs(pct)}%</span>` : '');
+            if (batchRun.active) return;
+            const item = findConversionItem(id);
+            if (!item) return;
+            const key = estimateKey(item);
+            if (sizeEstimateCache.has(key)) { conversionView.refreshItem(id); return; }
+            const token = estimateRunToken;
+            let bytes = null;
+            try { bytes = await computeEstimate(item); } catch (e) { bytes = null; }
+            if (token !== estimateRunToken) return;
+            sizeEstimateCache.set(key, bytes);
+            conversionView.refreshItem(id);
         }
 
-        // ===== BULK CONVERSION =====
-        bulkConvertBtn.addEventListener('click', async () => {
-            const items = state.conversionFiles;
-            const targetFormat = state.settings.bulkFormat;
-            if (!items.length || !targetFormat) { showToast('No files or format selected.', 'error'); return; }
+        // ======================================================================
+        //  BULK CONVERSION
+        //  Controlled concurrency, per-file error isolation, real cancellation,
+        //  and a streaming writer so intermediate blobs are released as soon as
+        //  they have been handed to the ZIP / PDF.
+        // ======================================================================
+        const MERGED_PDF = 'application/pdf+merged';   // pseudo-format: one PDF for everything
 
-            startProcessing(`Converting ${items.length} file(s)...`, items.length);
-            let successCount = 0;
-            let fileEntries = 0;
-            const JSZipLib = await ensureJSZip(); const zip = new JSZipLib();
+        function setItemStatus(item, status, error) {
+            item.status = status;
+            item.error = error || null;
+            conversionView.refreshItem(item.id);
+        }
+
+        /** Builds one PDF from many images, embedding and releasing page by page. */
+        async function buildMergedPdf(items, opts) {
+            opts = opts || {};
+            const signal = opts.signal;
+            const PDFLib = await loadLibrary('PDFLib', 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+            const pdfDoc = await PDFLib.PDFDocument.create();
+            const errors = [];
+            let ok = 0;
 
             for (let i = 0; i < items.length; i++) {
+                if (signal && signal.aborted) break;
                 const item = items[i];
-                const fmt = item.outputFormat || targetFormat;
                 try {
-                    const result = await produceConvertedBlob(item, fmt);
-                    const base = item.name.replace(/\.[^.]+$/, '');
-                    if (result && result.multi) {
-                        const pad = String(result.blobs.length).length;
-                        result.blobs.forEach((b, p) => {
-                            zip.file(`${base}_page${String(p + 1).padStart(pad, '0')}.${result.ext}`, b);
-                            fileEntries++;
-                        });
+                    let bytes, embedAsJpg;
+                    if (item.type === 'image/jpeg') {
+                        bytes = await item.file.arrayBuffer();
+                        embedAsJpg = true;
+                    } else if (item.type === 'image/png') {
+                        bytes = await item.file.arrayBuffer();
+                        embedAsJpg = false;
                     } else {
-                        zip.file(`${base}.${formatToExt(fmt)}`, result);
-                        fileEntries++;
+                        // Re-encode anything else to PNG off the main thread.
+                        const blob = await encodeImageFile(item.file, 'image/png', 1);
+                        bytes = await blob.arrayBuffer();
+                        embedAsJpg = false;
                     }
-                    successCount++;
+                    const image = embedAsJpg ? await pdfDoc.embedJpg(bytes) : await pdfDoc.embedPng(bytes);
+                    bytes = null;                                   // release the source buffer
+                    const page = pdfDoc.addPage([image.width, image.height]);
+                    page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+                    ok++;
                 } catch (e) {
-                    showToast(`Failed to convert ${item.name}: ${e.message}`, 'error');
+                    errors.push({ name: item.name, message: friendlyError(e) });
                 }
-                updateProcessing(i + 1, items.length, `Converted ${i+1}/${items.length}`, item.name);
+                if (opts.onProgress) opts.onProgress({ done: i + 1, failed: errors.length, total: items.length, errors: errors });
+                if (i % 5 === 4) await nextFrame();              // keep the UI breathing
+            }
+            if (!ok) throw new Error('No images could be added to the PDF.');
+            const pdfBytes = await pdfDoc.save();
+            return { blob: new Blob([pdfBytes], { type: 'application/pdf' }), ok: ok, errors: errors };
+        }
+
+        /**
+         * Collects results into a ZIP (or a single file when there is only one).
+         * Images are already compressed, so we STORE rather than DEFLATE: far less
+         * CPU and memory for a batch of 1000.
+         */
+        async function deliverResults(entries, zipName, signal) {
+            if (!entries.length) { showToast('Nothing to download.', 'error'); return null; }
+            if (entries.length === 1) {
+                downloadBlob(entries[0].blob, entries[0].name, entries[0].blob.type || 'application/octet-stream');
+                return entries[0].blob;
+            }
+            const JSZipLib = await ensureJSZip();
+            const zip = new JSZipLib();
+            const used = new Set();
+            entries.forEach(function (e) {
+                let name = sanitizeFilename(e.name), n = 1;
+                while (used.has(name)) {
+                    const dot = name.lastIndexOf('.');
+                    const stem = dot > 0 ? name.slice(0, dot) : name;
+                    const ext = dot > 0 ? name.slice(dot) : '';
+                    name = stem.replace(/ \(\d+\)$/, '') + ' (' + (++n) + ')' + ext;
+                }
+                used.add(name);
+                zip.file(name, e.blob);
+            });
+            const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' }, function (meta) {
+                if (signal && signal.aborted) return;
+                updateProcessing(Math.round(meta.percent), 100, 'Packaging ZIP… ' + Math.round(meta.percent) + '%');
+            });
+            if (signal && signal.aborted) return null;
+            downloadBlob(zipBlob, zipName, 'application/zip');
+            return zipBlob;
+        }
+
+        function reportOutcome(label, ok, failed, cancelled, size) {
+            if (cancelled) { showToast(label + ' cancelled — ' + ok + ' finished before stopping.', 'warning'); return; }
+            if (!ok) { showToast(label + ' produced no output.', 'error'); return; }
+            showToast(label + ': ' + ok + ' file' + (ok === 1 ? '' : 's') +
+                (failed ? ', ' + failed + ' failed' : '') +
+                (size ? ' · ' + formatBytes(size) : ''), failed ? 'warning' : 'success');
+        }
+
+        async function runBulkConversion() {
+            const items = state.conversionFiles.slice();
+            const targetFormat = state.settings.bulkFormat;
+            if (!items.length || !targetFormat) { showToast('Add files and pick a format first.', 'error'); return; }
+            if (!guardBatch()) return;
+            lastRetry = runBulkConversion;
+
+            items.forEach(function (it) { setItemStatus(it, 'waiting'); });
+
+            // "One merged PDF" is a different shape of job: a single output file.
+            if (targetFormat === MERGED_PDF) {
+                const images = items.filter(function (it) { return isImageType(it.type); });
+                if (!images.length) { showToast('Merging into one PDF needs image files.', 'error'); return; }
+                startProcessing('Building one PDF from ' + images.length + ' image' + (images.length === 1 ? '' : 's') + '…', images.length);
+                try {
+                    const out = await buildMergedPdf(images, { signal: batchSignal(), onProgress: onBatchProgress });
+                    if (batchCancelled()) { finishProcessing(false, { cancelled: true, failed: 0, errors: [] }); return; }
+                    downloadBlob(out.blob, 'images.pdf', 'application/pdf');
+                    images.forEach(function (it) { setItemStatus(it, 'done'); });
+                    finishProcessing(false, { failed: out.errors.length, errors: out.errors });
+                    reportOutcome('PDF created', out.ok, out.errors.length, false, out.blob.size);
+                } catch (e) {
+                    items.forEach(function (it) { setItemStatus(it, 'failed', friendlyError(e)); });
+                    finishProcessing(true, { errors: [{ name: 'PDF', message: friendlyError(e) }] });
+                }
+                return;
             }
 
-            if (successCount > 0) {
-                if (fileEntries === 1) {
-                    const onlyName = Object.keys(zip.files)[0];
-                    const blob = await zip.file(onlyName).async('blob');
-                    downloadBlob(blob, onlyName, targetFormat);
+            startProcessing('Converting ' + items.length + ' file' + (items.length === 1 ? '' : 's') + '…', items.length);
+
+            const outputs = [];
+            const concurrency = items.some(function (it) { return it.type === 'application/pdf'; })
+                ? PERF.pdfConcurrency : PERF.imageConcurrency;
+
+            const run = await runBatch(items, async function (item) {
+                setItemStatus(item, 'working');
+                const fmt = item.outputFormat || targetFormat;
+                const result = await produceConvertedBlob(item, fmt);
+                const base = sanitizeFilename(item.name).replace(/\.[^.]+$/, '');
+                if (result && result.multi) {
+                    const pad = String(result.blobs.length).length;
+                    result.blobs.forEach(function (b, pIdx) {
+                        outputs.push({ name: base + '_page' + String(pIdx + 1).padStart(pad, '0') + '.' + result.ext, blob: b });
+                    });
                 } else {
-                    const zipBlob = await zip.generateAsync({ type: 'blob' });
-                    downloadBlob(zipBlob, 'converted_files.zip', 'application/zip');
+                    outputs.push({ name: base + '.' + formatToExt(fmt), blob: result });
                 }
-                showToast(`Converted ${successCount} file(s) successfully!`, 'success');
-            } else {
-                showToast('No files were converted.', 'error');
+                setItemStatus(item, 'done');
+                return true;
+            }, { concurrency: concurrency, signal: batchSignal(), onProgress: onBatchProgress });
+
+            items.forEach(function (it) {
+                if (it.status === 'waiting') setItemStatus(it, 'cancelled');
+                else if (it.status === 'working') setItemStatus(it, 'cancelled');
+            });
+            run.errors.forEach(function (e) {
+                const it = items.find(function (x) { return x.name === e.name; });
+                if (it) setItemStatus(it, 'failed', e.message);
+            });
+
+            let zipBlob = null;
+            if (outputs.length && !run.cancelled) {
+                updateProcessing(items.length, items.length, 'Packaging…');
+                try { zipBlob = await deliverResults(outputs, 'converted_files.zip', batchSignal()); }
+                catch (e) { showToast('Could not package the results: ' + friendlyError(e), 'error'); }
+            } else if (outputs.length && run.cancelled) {
+                try { zipBlob = await deliverResults(outputs, 'converted_partial.zip', null); }
+                catch (e) { /* best effort on a cancelled run */ }
             }
-            finishProcessing();
-            if (state.settings.autoDelete) { state.conversionFiles = [];
-                renderAll(); }
-        });
+            outputs.length = 0;   // drop references so the blobs can be collected
+
+            finishProcessing(false, { failed: run.failed, cancelled: run.cancelled, errors: run.errors });
+            reportOutcome('Converted', run.done - run.failed, run.failed, run.cancelled, zipBlob && zipBlob.size);
+
+            if (state.settings.autoDelete && !run.cancelled) {
+                state.conversionFiles.forEach(function (it) { knownFiles.delete(dedupeKey(it.file)); });
+                state.conversionFiles = [];
+                renderAll();
+            }
+        }
+
+        bulkConvertBtn.addEventListener('click', runBulkConversion);
 
         // ===== CONVERSION ENGINE (Lazy Loaded) =====
         // PDFLib standard fonts only support WinAnsi; strip/replace anything outside it
@@ -2501,16 +3690,9 @@
             return new Blob([pdfBytes], { type: 'application/pdf' });
         }
 
-        async function convertToImage(item, format, quality) {
-            const img = await loadImage(item.file);
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            const blob = await new Promise(res => canvas.toBlob(res, format, quality));
-            if (!blob) throw new Error('Canvas toBlob failed');
-            return blob;
+        function convertToImage(item, format, quality) {
+            // Decoding + re-encoding happens in a worker when the browser allows it.
+            return encodeImageFile(item.file, format, quality);
         }
 
         async function convertToWord(item) {
@@ -2635,80 +3817,113 @@
             });
         }
 
-        // ===== SMART DOWNLOAD: single file direct, 2+ as zip =====
-        async function downloadResults(results, zipName) {
-            // results: [{name, blob}]
-            if (!results.length) { showToast('Nothing to download.', 'error'); return; }
-            if (results.length === 1) {
-                downloadBlob(results[0].blob, results[0].name, results[0].blob.type || 'application/octet-stream');
-                return;
-            }
-            const JSZipLib = await ensureJSZip();
-            const zip = new JSZipLib();
-            results.forEach(r => zip.file(r.name, r.blob));
-            const zipBlob = await zip.generateAsync({ type: 'blob' });
-            downloadBlob(zipBlob, zipName, 'application/zip');
+        function selectedImages() {
+            return state.images.filter(function (i) { return state.selectedIds.has(i.id); });
+        }
+        function selectedPdfsList() {
+            return state.pdfs.filter(function (p) { return state.selectedIds.has(p.id); });
+        }
+        function imageQuality() {
+            return (state.settings.imageQuality != null ? state.settings.imageQuality : state.settings.quality) / 100;
         }
 
-        function selectedImages() {
-            const sel = [...state.selectedIds];
-            return state.images.filter(i => sel.includes(i.id));
+        function markSelectionStatus(items, status) {
+            items.forEach(function (it) {
+                it.status = status;
+                fileGridView.refreshItem(it.kind, it.id);
+            });
         }
-        function imageQuality() { return (state.settings.imageQuality ?? state.settings.quality) / 100; }
+
+        /**
+         * Shared driver for every "do something to the selected images" tool.
+         * Bounded concurrency, cancellable, one failure never stops the rest.
+         */
+        async function runImageTool(cfg) {
+            const items = selectedImages();
+            if (!items.length) { showToast('Select images first.', 'error'); return; }
+            if (!guardBatch()) return;
+            lastRetry = function () { runImageTool(cfg); };
+
+            markSelectionStatus(items, 'waiting');
+            startProcessing(cfg.title(items.length), items.length);
+            const outputs = [];
+
+            const run = await runBatch(items, async function (item) {
+                item.status = 'working';
+                fileGridView.refreshItem(item.kind, item.id);
+                const out = await cfg.each(item);
+                if (out) outputs.push(out);
+                item.status = 'done';
+                fileGridView.refreshItem(item.kind, item.id);
+                return true;
+            }, { concurrency: PERF.imageConcurrency, signal: batchSignal(), onProgress: onBatchProgress });
+
+            items.forEach(function (it) {
+                if (it.status === 'waiting' || it.status === 'working') {
+                    it.status = run.cancelled ? 'cancelled' : 'ready';
+                }
+            });
+            run.errors.forEach(function (e) {
+                const it = items.find(function (x) { return x.name === e.name; });
+                if (it) { it.status = 'failed'; it.error = e.message; }
+            });
+            fileGridView.refresh();
+
+            let blob = null;
+            if (outputs.length) {
+                updateProcessing(items.length, items.length, 'Packaging…');
+                try { blob = await deliverResults(outputs, cfg.zipName, batchSignal()); }
+                catch (e) { showToast('Could not package the results: ' + friendlyError(e), 'error'); }
+            }
+            outputs.length = 0;
+
+            finishProcessing(false, { failed: run.failed, cancelled: run.cancelled, errors: run.errors });
+            reportOutcome(cfg.label, run.done - run.failed, run.failed, run.cancelled, blob && blob.size);
+
+            // Clear transient states so the grid settles back to normal.
+            setTimeout(function () {
+                items.forEach(function (it) { if (it.status === 'done') it.status = 'ready'; });
+                fileGridView.refresh();
+            }, 2500);
+        }
 
         // ===== RESIZE =====
-        async function resizeSelectedImages() {
-            const imgs = selectedImages();
-            if (!imgs.length) { showToast('Select images to resize.', 'error'); return; }
-            const input = prompt('Resize to max width/height (pixels). Aspect ratio is kept.', '1280');
+        function resizeSelectedImages() {
+            const input = prompt('Resize to what width in pixels? (height follows the aspect ratio)', '1280');
             if (input === null) return;
-            const maxDim = parseInt(input);
-            if (!maxDim || maxDim < 16 || maxDim > 10000) { showToast('Enter a number between 16 and 10000.', 'error'); return; }
-            startProcessing(`Resizing ${imgs.length} image(s)…`, imgs.length);
-            const results = [];
-            for (let i = 0; i < imgs.length; i++) {
-                try {
-                    const img = await loadImage(imgs[i].file);
-                    let w = img.width, h = img.height;
-                    const scale = Math.min(1, maxDim / Math.max(w, h));
-                    w = Math.round(w * scale); h = Math.round(h * scale);
-                    const canvas = document.createElement('canvas');
-                    canvas.width = w; canvas.height = h;
-                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', imageQuality()));
-                    results.push({ name: imgs[i].name.replace(/\.[^.]+$/, '') + `_${w}x${h}.jpg`, blob });
-                } catch (e) { showToast(`Failed: ${imgs[i].name}`, 'error'); }
-                updateProcessing(i + 1, imgs.length, `Resized ${i+1}/${imgs.length}`, imgs[i].name);
-            }
-            await downloadResults(results, 'resized_images.zip');
-            showToast(`Resized ${results.length} image(s)`, 'success');
-            finishProcessing();
+            const width = parseInt(input, 10);
+            if (!width || width < 1 || width > 20000) { showToast('Enter a width between 1 and 20000.', 'error'); return; }
+            runImageTool({
+                title: function (n) { return 'Resizing ' + n + ' image' + (n === 1 ? '' : 's') + ' to ' + width + 'px…'; },
+                label: 'Resized',
+                zipName: 'resized_images.zip',
+                each: async function (item) {
+                    const ratio = item.height && item.width ? item.height / item.width : null;
+                    const r = await runImageOp({
+                        op: 'encode', file: item.file, max: width,
+                        type: 'image/jpeg', quality: imageQuality()
+                    });
+                    return { name: sanitizeFilename(item.name).replace(/\.[^.]+$/, '') + '_' + width + 'w.jpg', blob: r.blob };
+                }
+            });
         }
 
-        // ===== ROTATE (90° clockwise) =====
-        async function rotateSelectedImages() {
-            const imgs = selectedImages();
-            if (!imgs.length) { showToast('Select images to rotate.', 'error'); return; }
-            startProcessing(`Rotating ${imgs.length} image(s)…`, imgs.length);
-            const results = [];
-            for (let i = 0; i < imgs.length; i++) {
-                try {
-                    const img = await loadImage(imgs[i].file);
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.height; canvas.height = img.width;
-                    const ctx = canvas.getContext('2d');
-                    ctx.translate(canvas.width / 2, canvas.height / 2);
-                    ctx.rotate(Math.PI / 2);
-                    ctx.drawImage(img, -img.width / 2, -img.height / 2);
-                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', imageQuality()));
-                    results.push({ name: imgs[i].name.replace(/\.[^.]+$/, '') + '_rotated.jpg', blob });
-                } catch (e) { showToast(`Failed: ${imgs[i].name}`, 'error'); }
-                updateProcessing(i + 1, imgs.length, `Rotated ${i+1}/${imgs.length}`, imgs[i].name);
-            }
-            await downloadResults(results, 'rotated_images.zip');
-            showToast(`Rotated ${results.length} image(s)`, 'success');
-            finishProcessing();
+        // ===== ROTATE (90 degrees clockwise) =====
+        function rotateSelectedImages() {
+            runImageTool({
+                title: function (n) { return 'Rotating ' + n + ' image' + (n === 1 ? '' : 's') + '…'; },
+                label: 'Rotated',
+                zipName: 'rotated_images.zip',
+                each: async function (item) {
+                    const r = await runImageOp({
+                        op: 'rotate', file: item.file, angle: 90,
+                        type: 'image/jpeg', quality: imageQuality(), background: '#ffffff'
+                    });
+                    return { name: sanitizeFilename(item.name).replace(/\.[^.]+$/, '') + '_rotated.jpg', blob: r.blob };
+                }
+            });
         }
+
 
         // ===== CROP (visual drag-box modal, first selected image) =====
         function cropSelectedImages() {
@@ -2872,172 +4087,189 @@
 
         // ===== COMPRESS SELECTED =====
         async function compressSelected() {
-            const quality = parseInt(globalQualitySlider.value) / 100;
-            const selected = [...state.selectedIds];
-            if (!selected.length) { showToast('Select files to compress.', 'error'); return; }
-            const images = state.images.filter(i => selected.includes(i.id));
-            const pdfs = state.pdfs.filter(p => selected.includes(p.id));
-            if (!images.length && !pdfs.length) { showToast('No compressible files selected.', 'error'); return; }
+            const images = selectedImages();
+            const pdfs = selectedPdfsList();
+            if (!images.length && !pdfs.length) { showToast('Select files to compress.', 'error'); return; }
+            if (!guardBatch()) return;
+            lastRetry = compressSelected;
 
-            startProcessing(`Compressing ${images.length + pdfs.length} file(s)...`, images.length + pdfs.length);
-            const results = [];
-            const quality2 = imageQuality();
-            let count = 0;
+            const all = images.concat(pdfs);
+            markSelectionStatus(all, 'waiting');
+            startProcessing('Compressing ' + all.length + ' file' + (all.length === 1 ? '' : 's') + '…', all.length);
 
-            for (const img of images) {
-                try {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const imageObj = new Image();
-                    await new Promise((resolve, reject) => {
-                        imageObj.onload = () => {
-                            canvas.width = imageObj.naturalWidth;
-                            canvas.height = imageObj.naturalHeight;
-                            ctx.drawImage(imageObj, 0, 0);
-                            resolve();
-                        };
-                        imageObj.onerror = reject;
-                        imageObj.src = URL.createObjectURL(img.file);
-                    });
-                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality2));
-                    results.push({ name: img.name.replace(/\.[^.]+$/, '.jpg'), blob });
-                } catch (e) { showToast(`Failed to compress ${img.name}`, 'error'); }
-                count++;
-                updateProcessing(count, images.length + pdfs.length);
+            const q = imageQuality();
+            const outputs = [];
+
+            const run = await runBatch(all, async function (item, index, signal) {
+                item.status = 'working';
+                fileGridView.refreshItem(item.kind, item.id);
+                if (item.kind === 'image') {
+                    const blob = await encodeImageFile(item.file, 'image/jpeg', q);
+                    outputs.push({ name: sanitizeFilename(item.name).replace(/\.[^.]+$/, '.jpg'), blob: blob });
+                } else {
+                    const blob = await compressOnePdf(item, signal);
+                    outputs.push({ name: sanitizeFilename(item.name).replace(/\.[^.]+$/, '') + '_compressed.pdf', blob: blob });
+                }
+                item.status = 'done';
+                fileGridView.refreshItem(item.kind, item.id);
+                return true;
+            }, {
+                // PDFs rasterise page by page, so keep that lane narrow.
+                concurrency: pdfs.length ? PERF.pdfConcurrency : PERF.imageConcurrency,
+                signal: batchSignal(), onProgress: onBatchProgress
+            });
+
+            all.forEach(function (it) { if (it.status === 'waiting' || it.status === 'working') it.status = run.cancelled ? 'cancelled' : 'ready'; });
+            run.errors.forEach(function (e) {
+                const it = all.find(function (x) { return x.name === e.name; });
+                if (it) { it.status = 'failed'; it.error = e.message; }
+            });
+            fileGridView.refresh();
+
+            let blob = null;
+            if (outputs.length) {
+                updateProcessing(all.length, all.length, 'Packaging…');
+                try { blob = await deliverResults(outputs, 'compressed_files.zip', batchSignal()); }
+                catch (e) { showToast('Could not package the results: ' + friendlyError(e), 'error'); }
             }
+            outputs.length = 0;
 
-            for (const pdf of pdfs) {
-                try {
-                    const PDFLib = await loadLibrary('PDFLib',
-                    'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
-                    const pdfDocObj = await openPdfDoc(pdf.file);
-                    const compressedPdf = await PDFLib.PDFDocument.create();
-                    const pq = (state.settings.pdfQuality ?? state.settings.quality) / 100;
-                    // Quality drives BOTH raster resolution and JPEG quality, so the
-                    // slider has a real, predictable effect on output size.
-                    // pq 0.1 → scale ~0.7, jpeg 0.4   |   pq 1.0 → scale ~2.0, jpeg 0.92
-                    const scale = 0.7 + pq * 1.3;
-                    const jpegQ = 0.4 + pq * 0.52;
-                    for (let i = 1; i <= pdfDocObj.numPages; i++) {
-                        updateProcessing(count, images.length + pdfs.length, `Compressing ${pdf.name} — page ${i}/${pdfDocObj.numPages}`, pdf.name);
-                        const page = await pdfDocObj.getPage(i);
-                        const viewport = page.getViewport({ scale });
-                        const canvas = document.createElement('canvas');
-                        canvas.width = viewport.width;
-                        canvas.height = viewport.height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.fillStyle = '#fff';
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        await page.render({ canvasContext: ctx, viewport }).promise;
-                        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', jpegQ));
-                        const imgBytes = await blob.arrayBuffer();
-                        const image = await compressedPdf.embedJpg(imgBytes);
-                        const newPage = compressedPdf.addPage([viewport.width, viewport.height]);
-                        newPage.drawImage(image, { x: 0, y: 0, width: viewport.width, height: viewport.height });
-                        await new Promise(r => setTimeout(r, 0)); // yield so UI/progress updates
-                    }
-                    const compressedBytes = await compressedPdf.save();
-                    let outBlob = new Blob([compressedBytes], { type: 'application/pdf' });
-                    // Guard: if rasterizing made it bigger (common for text PDFs), keep original.
-                    if (outBlob.size >= pdf.size) {
-                        showToast(`${pdf.name}: already optimized — kept original`, 'info');
-                        outBlob = pdf.file;
-                    }
-                    results.push({ name: pdf.name.replace(/\.[^.]+$/, '') + '_compressed.pdf', blob: outBlob });
-                } catch (e) { showToast(`Failed to compress ${pdf.name}: ${e.message}`, 'error'); }
-                count++;
-                updateProcessing(count, images.length + pdfs.length);
-            }
-
-            if (results.length > 0) {
-                await downloadResults(results, 'compressed_files.zip');
-                showToast('Compression complete!', 'success');
-            } else {
-                showToast('No files compressed.', 'error');
-            }
-            finishProcessing();
+            finishProcessing(false, { failed: run.failed, cancelled: run.cancelled, errors: run.errors });
+            reportOutcome('Compressed', run.done - run.failed, run.failed, run.cancelled, blob && blob.size);
+            setTimeout(function () {
+                all.forEach(function (it) { if (it.status === 'done') it.status = 'ready'; });
+                fileGridView.refresh();
+            }, 2500);
         }
 
-        // ===== MERGE IMAGES =====
-        async function mergeSelectedImages() {
-            const selected = state.images.filter(i => state.selectedIds.has(i.id));
-            if (selected.length < 2) { showToast('Select at least 2 images to merge.', 'error'); return; }
-            startProcessing('Merging images into PDF...', selected.length);
+        /** Rasterises one PDF at the chosen quality, one page at a time. */
+        async function compressOnePdf(pdfItem, signal) {
+            const PDFLib = await loadLibrary('PDFLib', 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+            const src = await openPdfDoc(pdfItem.file);
             try {
-                const PDFLib = await loadLibrary('PDFLib',
-                'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
-                const pdfDoc = await PDFLib.PDFDocument.create();
-                for (const img of selected) {
-                    const buf = await img.file.arrayBuffer();
-                    let image;
-                    if (img.type === 'image/jpeg') image = await pdfDoc.embedJpg(buf);
-                    else if (img.type === 'image/png') image = await pdfDoc.embedPng(buf);
-                    else {
-                        const imgObj = await loadImage(img.file);
-                        const canvas = document.createElement('canvas');
-                        canvas.width = imgObj.width;
-                        canvas.height = imgObj.height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(imgObj, 0, 0);
-                        const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-                        const pngBytes = await pngBlob.arrayBuffer();
-                        image = await pdfDoc.embedPng(pngBytes);
-                    }
-                    const page = pdfDoc.addPage([image.width, image.height]);
-                    page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
-                    updateProcessing(selected.indexOf(img) + 1, selected.length);
+                const out = await PDFLib.PDFDocument.create();
+                const pq = (state.settings.pdfQuality != null ? state.settings.pdfQuality : state.settings.quality) / 100;
+                // Quality drives BOTH raster resolution and JPEG quality, so the
+                // slider has a real, predictable effect on output size.
+                const scale = 0.7 + pq * 1.3;
+                const jpegQ = 0.4 + pq * 0.52;
+                for (let i = 1; i <= src.numPages; i++) {
+                    if (signal && signal.aborted) throw new Error('Cancelled');
+                    const page = await src.getPage(i);
+                    const viewport = page.getViewport({ scale: scale });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(viewport.width);
+                    canvas.height = Math.round(viewport.height);
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', jpegQ));
+                    canvas.width = canvas.height = 0;        // free the page raster now
+                    if (page.cleanup) page.cleanup();
+                    if (!blob) throw new Error('Canvas toBlob failed');
+                    const bytes = await blob.arrayBuffer();
+                    const image = await out.embedJpg(bytes);
+                    const newPage = out.addPage([viewport.width, viewport.height]);
+                    newPage.drawImage(image, { x: 0, y: 0, width: viewport.width, height: viewport.height });
+                    await nextFrame();                        // yield between pages
                 }
-                const bytes = await pdfDoc.save();
-                downloadBlob(bytes, 'merged_images.pdf', 'application/pdf');
-                showToast('Images merged successfully!', 'success');
-                finishProcessing();
-            } catch (e) { showToast('Error merging: ' + e.message, 'error');
-                finishProcessing(true); }
+                const bytes = await out.save();
+                const result = new Blob([bytes], { type: 'application/pdf' });
+                // Rasterising usually inflates text PDFs - keep whichever is smaller.
+                if (result.size >= pdfItem.size) {
+                    showToast(pdfItem.name + ': already optimised — kept the original', 'info');
+                    return pdfItem.file;
+                }
+                return result;
+            } finally {
+                try { await src.destroy(); } catch (e) {}
+            }
+        }
+
+        // ===== MERGE IMAGES INTO ONE PDF =====
+        async function mergeSelectedImages() {
+            const selected = selectedImages();
+            if (selected.length < 1) { showToast('Select images to combine into a PDF.', 'error'); return; }
+            if (!guardBatch()) return;
+            lastRetry = mergeSelectedImages;
+
+            startProcessing('Building one PDF from ' + selected.length + ' image' + (selected.length === 1 ? '' : 's') + '…', selected.length);
+            try {
+                const out = await buildMergedPdf(selected, { signal: batchSignal(), onProgress: onBatchProgress });
+                if (batchCancelled()) { finishProcessing(false, { cancelled: true, failed: 0, errors: [] }); return; }
+                downloadBlob(out.blob, 'images.pdf', 'application/pdf');
+                finishProcessing(false, { failed: out.errors.length, errors: out.errors });
+                reportOutcome('PDF created', out.ok, out.errors.length, false, out.blob.size);
+            } catch (e) {
+                finishProcessing(true, { errors: [{ name: 'PDF', message: friendlyError(e) }] });
+                showToast('Could not create the PDF: ' + friendlyError(e), 'error');
+            }
         }
 
         // ===== MERGE PDFS =====
         async function mergeSelectedPdfs() {
-            const selected = state.pdfs.filter(p => state.selectedIds.has(p.id));
+            const selected = selectedPdfsList();
             if (selected.length < 2) { showToast('Select at least 2 PDFs to merge.', 'error'); return; }
-            startProcessing('Merging PDFs...', selected.length);
+            if (!guardBatch()) return;
+            lastRetry = mergeSelectedPdfs;
+
+            startProcessing('Merging ' + selected.length + ' PDFs…', selected.length);
+            const errors = [];
+            let ok = 0;
             try {
-                const PDFLib = await loadLibrary('PDFLib',
-                'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
-                const mergedPdf = await PDFLib.PDFDocument.create();
-                for (const pdf of selected) {
-                    const buf = await pdf.file.arrayBuffer();
-                    const doc = await PDFLib.PDFDocument.load(buf);
-                    const pages = await mergedPdf.copyPages(doc, doc.getPageIndices());
-                    pages.forEach(p => mergedPdf.addPage(p));
-                    updateProcessing(selected.indexOf(pdf) + 1, selected.length);
+                const PDFLib = await loadLibrary('PDFLib', 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+                const merged = await PDFLib.PDFDocument.create();
+                for (let i = 0; i < selected.length; i++) {
+                    if (batchCancelled()) break;
+                    const pdf = selected[i];
+                    try {
+                        let buf = await pdf.file.arrayBuffer();
+                        const doc = await PDFLib.PDFDocument.load(buf);
+                        buf = null;
+                        const pages = await merged.copyPages(doc, doc.getPageIndices());
+                        pages.forEach(function (pg) { merged.addPage(pg); });
+                        ok++;
+                    } catch (e) {
+                        errors.push({ name: pdf.name, message: friendlyError(e) });
+                    }
+                    onBatchProgress({ done: i + 1, failed: errors.length, total: selected.length, errors: errors });
+                    await nextFrame();
                 }
-                const bytes = await mergedPdf.save();
-                downloadBlob(bytes, 'merged.pdf', 'application/pdf');
-                showToast('PDFs merged!', 'success');
-                finishProcessing();
-            } catch (e) { showToast('Error: ' + e.message, 'error');
-                finishProcessing(true); }
+                if (batchCancelled()) { finishProcessing(false, { cancelled: true, failed: errors.length, errors: errors }); return; }
+                if (!ok) throw new Error('None of the selected PDFs could be read.');
+                const bytes = await merged.save();
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                downloadBlob(blob, 'merged.pdf', 'application/pdf');
+                finishProcessing(false, { failed: errors.length, errors: errors });
+                reportOutcome('Merged', ok, errors.length, false, blob.size);
+            } catch (e) {
+                finishProcessing(true, { errors: errors.concat([{ name: 'Merge', message: friendlyError(e) }]) });
+                showToast('Could not merge: ' + friendlyError(e), 'error');
+            }
         }
 
         // ===== EXPORT ZIP =====
         async function exportSelectedAsZip(type) {
-            const items = type === 'images' ? state.images.filter(i => state.selectedIds.has(i.id)) : state.pdfs.filter(p =>
-                state.selectedIds.has(p.id));
+            const items = type === 'images' ? selectedImages() : selectedPdfsList();
             if (!items.length) { showToast('Select files to export.', 'error'); return; }
-            startProcessing('Creating ZIP...', items.length);
-            const JSZipLib = await ensureJSZip(); const zip = new JSZipLib();
-            for (const item of items) {
-                zip.file(item.name, await item.file.arrayBuffer());
-                updateProcessing(items.indexOf(item) + 1, items.length);
+            if (!guardBatch()) return;
+            lastRetry = function () { exportSelectedAsZip(type); };
+
+            startProcessing('Packaging ' + items.length + ' file' + (items.length === 1 ? '' : 's') + '…', items.length);
+            try {
+                // Hand JSZip the File objects directly - no ArrayBuffer copies.
+                const entries = items.map(function (it) { return { name: it.name, blob: it.file }; });
+                const blob = await deliverResults(entries, type + '_export.zip', batchSignal());
+                finishProcessing(false, { failed: 0, cancelled: batchCancelled(), errors: [] });
+                reportOutcome('Exported', items.length, 0, batchCancelled(), blob && blob.size);
+            } catch (e) {
+                finishProcessing(true, { errors: [{ name: 'ZIP', message: friendlyError(e) }] });
             }
-            const zipBlob = await zip.generateAsync({ type: 'blob' });
-            downloadBlob(zipBlob, `${type}_export.zip`, 'application/zip');
-            showToast('ZIP created!', 'success');
-            finishProcessing();
         }
 
         async function splitSelectedPdf() {
-            showToast('Split PDF feature coming soon', 'info');
+            showToast('Splitting PDFs is not available yet.', 'info');
         }
 
         // ===== QUEUE =====
@@ -3123,12 +4355,19 @@
 
         // ===== SELECT ALL / CLEAR =====
         $('selectAllBtn').addEventListener('click', () => {
-            state.images.forEach(i => state.selectedIds.add(i.id));
-            state.pdfs.forEach(p => state.selectedIds.add(p.id));
-            renderAll();
+            const shown = visibleFileItems();
+            const allSelected = shown.length > 0 && shown.every(f => state.selectedIds.has(f.id));
+            if (allSelected) state.selectedIds.clear();
+            else shown.forEach(f => state.selectedIds.add(f.id));
+            refreshSelectionUi();
+            scheduleCardEstimateRefresh();
+            announce(allSelected ? 'Selection cleared.' : shown.length + ' files selected.');
         });
-        $('clearSelectedBtn').addEventListener('click', () => { state.selectedIds.clear();
-            renderAll(); });
+        $('clearSelectedBtn').addEventListener('click', () => {
+            state.selectedIds.clear();
+            refreshSelectionUi();
+            announce('Selection cleared.');
+        });
         $('convertSelectedBtn').addEventListener('click', () => addSelectedToConvert());
 
         // Tap-to-arm delete (no confirm() dialog — those can be silently
@@ -3154,10 +4393,16 @@
                 }
                 clearTimeout(armTimer);
                 const ids = new Set(state.selectedIds);
-                state.images.forEach(i => { if (ids.has(i.id)) urlRegistry.revoke(i.thumbnail); });
+                const removedCount = ids.size;
+                state.images.concat(state.pdfs).forEach(function (f) {
+                    if (!ids.has(f.id)) return;
+                    releaseItemResources(f);
+                    knownFiles.delete(dedupeKey(f.file));
+                });
                 state.images = state.images.filter(i => !ids.has(i.id));
                 state.pdfs = state.pdfs.filter(p => !ids.has(p.id));
                 state.selectedIds.clear();
+                announce(removedCount + ' files removed.');
                 btn.style.background = '';
                 reset();
                 renderAll();
@@ -3168,8 +4413,16 @@
         // (tab switching removed — single unified grid)
 
         // ===== SEARCH =====
-        searchInput.addEventListener('input', (e) => { state.searchQuery = e.target.value;
-            renderAll(); });
+        let searchDebounce = null;
+        searchInput.addEventListener('input', (e) => {
+            state.searchQuery = e.target.value;
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(() => {
+                renderGrids();
+                const n = visibleFileItems().length;
+                announce(n + ' file' + (n === 1 ? '' : 's') + ' match the filter.');
+            }, 140);
+        });
 
         // ===== KEYBOARD SHORTCUTS =====
         function isTypingContext() {
@@ -3189,17 +4442,32 @@
                 if (isTypingContext()) return; // never intercept text editing
                 if (state.selectedIds.size === 0) return;
                 const ids = new Set(state.selectedIds);
+                state.images.concat(state.pdfs).forEach(function (f) {
+                    if (!ids.has(f.id)) return;
+                    releaseItemResources(f);
+                    knownFiles.delete(dedupeKey(f.file));
+                });
                 state.images = state.images.filter(i => !ids.has(i.id));
                 state.pdfs = state.pdfs.filter(p => !ids.has(p.id));
                 state.selectedIds.clear();
                 renderAll();
                 showToast('Selected files deleted.', 'info');
+                announce(ids.size + ' files deleted.');
             }
-            // Escape closes queue sidebar and format panel
+            // Escape closes whatever is on top, innermost first.
             if (e.key === 'Escape') {
-                if (!queueSidebar.classList.contains('open')) return;
-                queueSidebar.classList.remove('open');
-                queueOverlay.classList.add('hidden');
+                if (!$('cropModal').classList.contains('hidden')) { closeCropModal(); return; }
+                if (!previewModal.classList.contains('hidden')) { closePreview(); return; }
+                if (!settingsModal.classList.contains('hidden')) { settingsModal.classList.add('hidden'); return; }
+                if (!processingModal.classList.contains('hidden')) {
+                    if (batchRun.active && batchRun.controller) batchRun.controller.abort();
+                    else closeProcessing();
+                    return;
+                }
+                if (queueSidebar.classList.contains('open')) {
+                    queueSidebar.classList.remove('open');
+                    queueOverlay.classList.add('hidden');
+                }
             }
         });
 
@@ -3236,8 +4504,7 @@
         if (compactDropZone) {
             compactDropZone.addEventListener('click', () => { fileInput.accept = 'image/*,.pdf,.docx,.xlsx,.pptx,.html,.htm,.svg,.tiff,.tif,.avif,.ico,.bmp'; fileInput.click(); });
             compactDropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); compactDropZone.click(); } });
-            compactDropZone.addEventListener('dragover', (e) => { e.preventDefault(); compactDropZone.classList.add('dragover'); });
-            compactDropZone.addEventListener('dragleave', () => compactDropZone.classList.remove('dragover'));
+            wireDropZone(compactDropZone);
             compactDropZone.addEventListener('drop', (e) => { e.preventDefault(); compactDropZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files, 'auto'); });
         }
 
@@ -3270,9 +4537,29 @@
         renderAll();
         showToast('Studio Pro ready — all processing is local, nothing leaves your device.', 'success', 4000);
 
+        // ===== TEST / DEBUG HOOK =====
+        // Top-level `function` declarations are already reachable as window.*;
+        // this exposes the const-scoped internals that tests/run-tests.mjs and
+        // the browser console need. It reads and writes the live objects - do
+        // not build features on top of it.
+        window.Studio = {
+            state: state,
+            settings: state.settings,
+            PERF: PERF,
+            knownFiles: knownFiles,
+            batchRun: batchRun,
+            thumbUrls: thumbUrls,
+            sizeEstimateCache: sizeEstimateCache,
+            fileGridView: fileGridView,
+            conversionView: conversionView,
+            workersActive: function () { return ImageWorkers.active; }
+        };
+
         // Clean up URLs when page unloads
         window.addEventListener('beforeunload', () => {
             urlRegistry.revokeAll();
+            thumbUrls.clear();
+            ImageWorkers.terminate();
         });
 
         console.log('Studio Pro initialized.');

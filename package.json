@@ -1,0 +1,16 @@
+{
+  "name": "images-pdfconverter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local, offline image and PDF converter, compressor and merger. The app itself is a single static index.html with no build step.",
+  "scripts": {
+    "start": "npx --yes serve . -l 5173",
+    "test": "node tests/run-tests.mjs",
+    "test:1000": "node tests/run-tests.mjs --sizes 1000",
+    "test:headed": "node tests/run-tests.mjs --headed --sizes 100",
+    "build": "node tools/check.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.49.0"
+  }
+}
